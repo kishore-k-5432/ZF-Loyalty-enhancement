@@ -19,6 +19,7 @@
     "canon:build": "storybook build -o canon-static",
     "icons:sync": "node scripts/gen-icons.mjs",
     "build:catalyst": "npm run build && node scripts/build-catalyst.mjs",
+    "build:slate": "npm run build:catalyst && node scripts/build-slate.mjs",
     "sync": "bash scripts/sync.sh"
   },
   "dependencies": {
