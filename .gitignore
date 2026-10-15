@@ -1,0 +1,19 @@
+node_modules
+dist
+# NOTE: `client/` is deliberately NOT ignored. It is build output, which would
+# normally never be committed — but Catalyst hosts this repo's `main` branch
+# directly, so the folder it serves has to exist in the branch. Regenerate it
+# with `npm run build:catalyst` and commit the result whenever the app changes,
+# or the deployed site silently lags the source.
+#
+# If Catalyst is ever reconfigured to run the build itself, ignore `client`
+# again and delete it from the tree — committed build output is a cost, not a
+# convention.
+canon-static
+storybook-static
+*.local
+.DS_Store
+.vite
+*.tsbuildinfo
+canon.log
+*.log
