@@ -158,12 +158,12 @@ export function Books() {
           onNavigate={(id) => { setCurrentId(id); setInvoiceId(null); setCreating(false); }}
           collapsed={collapsed}
           onCollapsedChange={setCollapsed}
-          product={{ name: 'ZOM-VideoIQ', mark: COMMERCE_MARK }}
+          product={{ name: 'ZC - Loyalty Enhancement', mark: COMMERCE_MARK }}
           footer={(
             <Stack gap={0} className="pt-10">
               <Surface tone="sunken" pad={5} radius="md">
                 <Stack gap={3}>
-                  <Text size="caption" tone="tertiary">File : <Text as="span" size="caption" tone="secondary">{'ZOM-VideoIQ'}</Text></Text>
+                  <Text size="caption" tone="tertiary">File : <Text as="span" size="caption" tone="secondary">{'Loyalty Enhancement'}</Text></Text>
                   <Text size="caption" tone="tertiary">Done by : <Text as="span" size="caption" tone="secondary">Kishore.K</Text></Text>
                 </Stack>
               </Surface>

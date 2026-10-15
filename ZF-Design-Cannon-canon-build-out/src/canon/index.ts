@@ -1,5 +1,5 @@
 /* ============================================================================
-   THE PUBLIC API OF ZOM-VIDEOIQ.
+   THE PUBLIC API OF LOYALTY ENHANCEMENT.
    ----------------------------------------------------------------------------
    src/app/** may import from '@canon' and from nothing else. Deep imports such
    as '@canon/components/Button/Button' are rejected by

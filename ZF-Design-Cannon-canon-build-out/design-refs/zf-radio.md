@@ -1,4 +1,4 @@
-# ZOM-VideoIQ — Radio Button
+# Loyalty Enhancement — Radio Button
 
 **Component:** §2.2 of the canon · **Figma:** `Tin Tin` — page `radio button` (`11:3768`) — component
 set `radio` (`11:3779`) · **CSS class:** `.zf-radio`

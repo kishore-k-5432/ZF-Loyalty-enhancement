@@ -1,4 +1,4 @@
-# ZOM-VideoIQ — Segmented Control
+# Loyalty Enhancement — Segmented Control
 
 **Canon:** §2.11 · **Figma:** `Tin Tin` — page `Segmentation tab` (`31:18754`)
 **Two component sets:** `zf-segment` (`31:18821`) · `zf-segmented` (`31:18861`)

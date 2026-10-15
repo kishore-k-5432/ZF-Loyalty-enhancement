@@ -26,7 +26,7 @@ git rev-parse --git-dir >/dev/null 2>&1 || die "This folder is not a git reposit
 REMOTE=$(git remote get-url origin 2>/dev/null) || die "No 'origin' remote is configured."
 case "$REMOTE" in
   *ZF-Design-Cannon*) ok "origin → $REMOTE" ;;
-  *) die "origin is $REMOTE — that is not the ZOM-VideoIQ repo. Stopping." ;;
+  *) die "origin is $REMOTE — that is not the Loyalty Enhancement repo. Stopping." ;;
 esac
 
 BRANCH=$(git rev-parse --abbrev-ref HEAD)

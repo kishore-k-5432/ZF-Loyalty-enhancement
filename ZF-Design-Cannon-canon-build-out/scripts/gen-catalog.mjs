@@ -42,7 +42,7 @@ let md = `# The canon
 
 <!-- GENERATED FILE — do not edit. Run \`npm run canon:docs\` after changing src/canon/registry.json. -->
 
-Everything the ZOM-VideoIQ contains. Read this before building any screen:
+Everything the Loyalty Enhancement canon contains. Read this before building any screen:
 if something here already does the job, use it.
 
 **${components.length} components** — ${MARK.stable} ${counts.stable ?? 0} stable · ${MARK.incoming} ${counts.incoming ?? 0} incoming · ${MARK.deprecated} ${counts.deprecated ?? 0} deprecated

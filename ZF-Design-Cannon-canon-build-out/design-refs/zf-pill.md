@@ -1,4 +1,4 @@
-# ZOM-VideoIQ — Pill
+# Loyalty Enhancement — Pill
 
 **Canon:** §2.9 · **Figma:** `Tin Tin` — page `Pills` (`30:15717`) — component set `zf-pill` (`30:15742`)
 **CSS class:** `.zf-pill` · **Measured 2026-08-21 · three fixes applied to Figma the same day.**

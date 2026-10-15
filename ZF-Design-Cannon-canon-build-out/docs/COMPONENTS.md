@@ -2,7 +2,7 @@
 
 <!-- GENERATED FILE — do not edit. Run `npm run canon:docs` after changing src/canon/registry.json. -->
 
-Everything the ZOM-VideoIQ contains. Read this before building any screen:
+Everything the Loyalty Enhancement canon contains. Read this before building any screen:
 if something here already does the job, use it.
 
 **55 components** — ✅ 55 stable · 🚧 0 incoming · ⚠️ 0 deprecated

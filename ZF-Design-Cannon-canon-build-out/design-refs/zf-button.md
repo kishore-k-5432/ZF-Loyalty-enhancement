@@ -1,4 +1,4 @@
-# ZOM-VideoIQ — Button family
+# Loyalty Enhancement — Button family
 
 **Canon:** §2.7 · **Figma:** `Tin Tin` — page `Buttons` (`23:10416`) · **CSS class:** `.zf-btn`
 **Measured 2026-08-20.**

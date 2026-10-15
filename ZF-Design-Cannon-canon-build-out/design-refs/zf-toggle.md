@@ -1,4 +1,4 @@
-# ZOM-VideoIQ — Toggle
+# Loyalty Enhancement — Toggle
 
 **Canon:** §2.4 · **Figma:** `Tin Tin` — page `Toggle` (`13:6177`) — component set `Toggle` (`13:6181`)
 **CSS class:** `.zf-toggle` · **Measured 2026-08-21 · rev 2.**

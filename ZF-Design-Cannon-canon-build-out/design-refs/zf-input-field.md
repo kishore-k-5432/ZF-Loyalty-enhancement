@@ -1,4 +1,4 @@
-# ZOM-VideoIQ — Input Field
+# Loyalty Enhancement — Input Field
 
 **Figma:** `Tin Tin` — page `Input Field ` (`13:7313`)
 **Components:** `zf-field` (`112:14067`) · `Input Field/States` (`13:7334`)

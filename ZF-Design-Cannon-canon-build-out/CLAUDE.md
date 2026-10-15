@@ -1,4 +1,4 @@
-# ZOM-VideoIQ — working rules
+# Loyalty Enhancement — working rules
 
 A canonical design system, and the application built from it, in one repo. The
 application is assembled **exclusively** from canon components. Screens are

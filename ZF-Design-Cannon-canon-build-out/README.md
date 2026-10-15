@@ -1,4 +1,4 @@
-# ZOM-VideoIQ
+# Loyalty Enhancement
 
 A canonical design system, and the web application built from it — one repo,
 with the boundary between them **mechanically enforced**.

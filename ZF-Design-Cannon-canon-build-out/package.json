@@ -1,8 +1,8 @@
 {
-  "name": "zom-videoiq",
+  "name": "loyalty-enhancement",
   "private": true,
   "version": "0.1.0",
-  "description": "ZOM-VideoIQ — the canonical design system, and the application built from it.",
+  "description": "Loyalty Enhancement — the canonical design system, and the application built from it.",
   "type": "module",
   "sideEffects": [
     "**/*.css"

@@ -1,4 +1,4 @@
-# ZOM-VideoIQ — Checkbox
+# Loyalty Enhancement — Checkbox
 
 **Canon:** §2.3 · **Figma:** `Tin Tin` — page `Check box` (`13:4728`)
 **Sets:** `checkbox` (`13:4746`, 15 variants) · `checkbox_defined` (`13:4782`, 2 variants)

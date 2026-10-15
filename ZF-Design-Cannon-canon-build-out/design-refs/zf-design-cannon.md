@@ -1,4 +1,4 @@
-# ZOM-VideoIQ — Design System
+# Loyalty Enhancement — Design System
 
 **Source of truth:** Figma → `Tin-Tin` (`zZtArxOeRCjd7pKE25HQVS`)
 **Version:** 0.42.1

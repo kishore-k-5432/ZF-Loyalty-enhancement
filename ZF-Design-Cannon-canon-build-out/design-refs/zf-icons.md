@@ -1,4 +1,4 @@
-# ZOM-VideoIQ — Icons
+# Loyalty Enhancement — Icons
 
 **Foundation:** §1.7 of the canon · **Figma:** `Tin Tin` — page `Icons` (`13:8745`) · **CSS:** consumed
 as inline SVG, no class of its own

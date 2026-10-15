@@ -1,4 +1,4 @@
-# ZOM-VideoIQ — Wizard
+# Loyalty Enhancement — Wizard
 
 **Canon:** §2.10 · **Figma:** `Tin Tin` — page `Wizard` (`30:15762`)
 **Three component sets:** `zf-step` (`31:18540`) · `zf-step-card` (`30:15781`) · `zf-wizard` (`30:15789`)
