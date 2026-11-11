@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import type { IconName } from '@canon';
 import {
   Banner, Button, Checkbox, DatePicker, Divider, Field, Icon, Inline, InputField,
-  RadioGroup, Select, SettingsShell, Stack, StatusBadge, Surface, Text, Textarea, Toggle,
+  RadioGroup, Select, SettingsShell, Stack, StatusBadge, Surface, Text, Textarea, Toggle, Tooltip,
 } from '@canon';
 import { COMMERCE_MARK } from '../data/books-marks';
 import { SETTINGS_SECTIONS } from '../data/settings';
@@ -28,6 +28,10 @@ const unitOptions = [
 ];
 
 const POINTS_EARNED_TIP = 'Number of loyalty points a customer earns for every qualifying unit spent in this order value range.';
+/*  Redemption Window and Points Expiration are mutually exclusive: only one
+    can be on. The one that is off is disabled, and says why on hover.  */
+const EXPIRY_LOCKED_TIP = 'You can\'t enable Points Expiration while Redemption Window is enabled. Disable Redemption Window to use this option.';
+const WINDOW_LOCKED_TIP = 'You can\'t enable Redemption Window while Points Expiration is enabled. Disable Points Expiration to use this option.';
 const AMOUNT_PER_POINT_TIP = 'The monetary value of one loyalty point when redeemed. For example, if set to 10, then 100 points = INR 1,000 off.';
 
 /*  Amount per Point is read-only in this POC, so the simulator uses its value.  */
@@ -133,8 +137,11 @@ export function LoyaltyV2({ onClose, versionSwitch }: LoyaltyV2Props) {
   //  Redeeming preferences
   const [minPoints, setMinPoints] = useState(true);
   const [minPointValue, setMinPointValue] = useState('100');
-  const [redemptionStartOn, setRedemptionStartOn] = useState(true);
-  const [redemptionStart, setRedemptionStart] = useState('2024-08-27');
+  //  Redemption Window — off by default, because Points Expiration is on and
+  //  the two cannot both be enabled.
+  const [redemptionStartOn, setRedemptionStartOn] = useState(false);
+  const [redemptionStart, setRedemptionStart] = useState('2026-10-15');
+  const [redemptionEnd, setRedemptionEnd] = useState('2026-12-31');
 
   //  Points expiration
   const [pointsExpiration, setPointsExpiration] = useState(true);
@@ -145,13 +152,13 @@ export function LoyaltyV2({ onClose, versionSwitch }: LoyaltyV2Props) {
 
   //  Schedule program
   const [programDates, setProgramDates] = useState(true);
-  const [programStart, setProgramStart] = useState('2024-08-27');
-  const [programEnd, setProgramEnd] = useState('2024-08-28');
+  const [programStart, setProgramStart] = useState('2026-10-01');
+  const [programEnd, setProgramEnd] = useState('2026-12-31');
   const [neverExpire, setNeverExpire] = useState(false);
 
   //  Live preview simulator — a hypothetical customer at the till.
   const [balance, setBalance] = useState('250');
-  const [checkoutDate, setCheckoutDate] = useState('2024-08-27');
+  const [checkoutDate, setCheckoutDate] = useState('2026-11-10');
 
 
   /*  The one conflict left: a fixed expiry that falls BEFORE redemption opens
@@ -164,7 +171,7 @@ export function LoyaltyV2({ onClose, versionSwitch }: LoyaltyV2Props) {
   const pts = Number(balance) || 0;
 
   const rules = [
-    { icon: 'arrow-right' as const, label: 'Redemption starts', on: redemptionStartOn, value: redemptionStartOn ? `From ${fmt(redemptionStart)}` : 'As soon as points are earned' },
+    { icon: 'arrow-right' as const, label: 'Redemption window', on: redemptionStartOn, value: redemptionStartOn ? `${fmt(redemptionStart)} → ${fmt(redemptionEnd)}` : 'As soon as points are earned' },
     {
       icon: 'alert-circle' as const,
       label: 'Points expire',
@@ -181,6 +188,11 @@ export function LoyaltyV2({ onClose, versionSwitch }: LoyaltyV2Props) {
       ? { state: 'pass', title: 'Redemption has started', detail: `Open from ${fmt(redemptionStart)}.` }
       : { state: 'fail', title: 'Redemption hasn\'t started', detail: `It opens on ${fmt(redemptionStart)}.` };
 
+  //  The window's other end: past it, nothing can be redeemed.
+  const endCheck: Check | null = redemptionStartOn && redemptionEnd && checkoutDate > redemptionEnd
+    ? { state: 'fail', title: 'Redemption window has closed', detail: `It closed on ${fmt(redemptionEnd)}.` }
+    : null;
+
   const cutoff = minusPeriod(checkoutDate, expiryCount, expiryUnit);
   const expiryCheck: Check = !pointsExpiration
     ? { state: 'pass', title: 'Points never expire', detail: 'The whole balance stays valid.' }
@@ -190,7 +202,7 @@ export function LoyaltyV2({ onClose, versionSwitch }: LoyaltyV2Props) {
         ? { state: 'pass', title: 'Points are still valid', detail: `All points expire on ${fmt(expiryDate)}.` }
         : { state: 'fail', title: 'Points have expired', detail: `All points expired on ${fmt(expiryDate)}.` };
 
-  const checks = [startCheck, expiryCheck];
+  const checks = endCheck ? [startCheck, endCheck, expiryCheck] : [startCheck, expiryCheck];
   const blocker = checks.find((c) => c.state === 'fail');
   const worth = (pts * AMOUNT_PER_POINT).toLocaleString('en-IN');
 
@@ -378,19 +390,29 @@ export function LoyaltyV2({ onClose, versionSwitch }: LoyaltyV2Props) {
               </Stack>
 
               <Stack gap={8}>
-                <Checkbox
-                  label="Redemption Start Date"
-                  description="Customers can start redeeming points only from the selected date."
-                  selection={redemptionStartOn ? 'checked' : 'unchecked'}
-                  onSelectionChange={(next) => setRedemptionStartOn(next === 'checked')}
-                />
+                <Tooltip content={WINDOW_LOCKED_TIP} enabled={pointsExpiration}>
+                  <Checkbox
+                    label="Redemption Window"
+                    description="When customers can start and stop redeeming points."
+                    disabled={pointsExpiration}
+                    selection={redemptionStartOn ? 'checked' : 'unchecked'}
+                    onSelectionChange={(next) => setRedemptionStartOn(next === 'checked')}
+                  />
+                </Tooltip>
 
                 {redemptionStartOn ? (
                   <Stack gap={8} className="ps-10">
                     <Stack gap={0} className="w-field-lg shrink-0">
-                      <Field label="Start Date" required>
+                      <Field label="Redemption Start Date" required>
                         {({ id, required, describedBy }) => (
                           <DatePicker id={id} required={required} ariaDescribedBy={describedBy} value={redemptionStart} onChange={setRedemptionStart} />
+                        )}
+                      </Field>
+                    </Stack>
+                    <Stack gap={0} className="w-field-lg shrink-0">
+                      <Field label="Redemption End Date" required>
+                        {({ id, required, describedBy }) => (
+                          <DatePicker id={id} required={required} ariaDescribedBy={describedBy} min={redemptionStart} value={redemptionEnd} onChange={setRedemptionEnd} />
                         )}
                       </Field>
                     </Stack>
@@ -412,12 +434,15 @@ export function LoyaltyV2({ onClose, versionSwitch }: LoyaltyV2Props) {
               <Text as="h4" size="body-lg" weight="medium">Expiry</Text>
 
               <Stack gap={8}>
-                <Checkbox
-                  label="Points Expiration"
-                  description="Enable points expiry that controls how long individual points stay valid in a customer's wallet"
-                  selection={pointsExpiration ? 'checked' : 'unchecked'}
-                  onSelectionChange={(next) => setPointsExpiration(next === 'checked')}
-                />
+                <Tooltip content={EXPIRY_LOCKED_TIP} enabled={redemptionStartOn}>
+                  <Checkbox
+                    label="Points Expiration"
+                    description="Enable points expiry that controls how long individual points stay valid in a customer's wallet"
+                    disabled={redemptionStartOn}
+                    selection={pointsExpiration ? 'checked' : 'unchecked'}
+                    onSelectionChange={(next) => setPointsExpiration(next === 'checked')}
+                  />
+                </Tooltip>
 
                 {pointsExpiration ? (
                   <Stack gap={0} className="ps-10 max-w-settings-option-panel">

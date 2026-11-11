@@ -186,3 +186,24 @@ export const Truncation: Story = {
     </Stack>
   ),
 };
+
+/*  Per-option tooltips: hover a segment. For options whose label alone does
+    not say what they are — here, version numbers.  */
+export const WithTooltips: Story = {
+  render: () => {
+    const [value, setValue] = useState('v2');
+    return (
+      <Segmented
+        size="sm"
+        label="Version"
+        value={value}
+        onChange={setValue}
+        options={[
+          { value: 'v1', label: 'V1', tooltip: 'Points expiry moved into a section of its own.' },
+          { value: 'v2', label: 'V2', tooltip: 'Redemption window or points expiration — one or the other.' },
+          { value: 'v3', label: 'V3', tooltip: 'Adds the points pending period and bonus campaigns.' },
+        ]}
+      />
+    );
+  },
+};

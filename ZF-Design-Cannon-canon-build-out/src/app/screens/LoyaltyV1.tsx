@@ -137,8 +137,8 @@ export function LoyaltyV1({ onClose, versionSwitch }: LoyaltyV1Props) {
   const [minPoints, setMinPoints] = useState(true);
   const [minPointValue, setMinPointValue] = useState('100');
   const [redemptionWindow, setRedemptionWindow] = useState(true);
-  const [redemptionStart, setRedemptionStart] = useState('2024-08-27');
-  const [redemptionEnd, setRedemptionEnd] = useState('2024-08-28');
+  const [redemptionStart, setRedemptionStart] = useState('2026-10-15');
+  const [redemptionEnd, setRedemptionEnd] = useState('2026-12-31');
 
   //  Points expiration
   const [pointsExpiration, setPointsExpiration] = useState(true);
@@ -149,13 +149,13 @@ export function LoyaltyV1({ onClose, versionSwitch }: LoyaltyV1Props) {
 
   //  Schedule program
   const [programDates, setProgramDates] = useState(true);
-  const [programStart, setProgramStart] = useState('2024-08-27');
-  const [programEnd, setProgramEnd] = useState('2024-08-28');
+  const [programStart, setProgramStart] = useState('2026-10-01');
+  const [programEnd, setProgramEnd] = useState('2026-12-31');
   const [neverExpire, setNeverExpire] = useState(false);
 
   //  Live preview simulator — a hypothetical customer at the till.
   const [balance, setBalance] = useState('250');
-  const [checkoutDate, setCheckoutDate] = useState('2024-08-27');
+  const [checkoutDate, setCheckoutDate] = useState('2026-11-10');
 
   /*  Switching to "Expiration Date" copies the Redemption End Date in once.
       There is no live sync after that, so the merchant can edit it freely.  */

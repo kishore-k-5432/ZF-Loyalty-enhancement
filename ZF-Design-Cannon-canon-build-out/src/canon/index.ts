@@ -141,6 +141,8 @@ export { Menu } from './components/Menu/Menu';
 export type { MenuProps, MenuEntry, MenuItem } from './components/Menu/Menu';
 export { SidePanel } from './components/SidePanel/SidePanel';
 export type { SidePanelProps } from './components/SidePanel/SidePanel';
+export { Tooltip } from './components/Tooltip/Tooltip';
+export type { TooltipProps } from './components/Tooltip/Tooltip';
 
 /* ── Registry (for tooling and docs, not for rendering) ───────────────────── */
 export { registry, stableComponents, incomingComponents, findComponent } from './registry';

@@ -296,6 +296,9 @@
   --zf-chrome-settings-option-card: 774px;
   --zf-chrome-settings-option-panel: 474px;
   --zf-chrome-settings-aside: 340px;
+  /* Tooltip: the bubble's maximum width. Four lines of a two-sentence
+     reason at 13px, as drawn in the disabled-option tooltip. */
+  --zf-chrome-tooltip: 240px;
   /* The sticky aside's ceiling: the viewport less the settings bar, the
      header band, the footer band and the body's padding. A sticky column taller
      than its scrollport has an unreachable bottom, so past this it scrolls on
@@ -837,6 +840,7 @@
   --spacing-settings-option-card: var(--zf-chrome-settings-option-card);
   --spacing-settings-option-panel: var(--zf-chrome-settings-option-panel);
   --spacing-settings-aside: var(--zf-chrome-settings-aside);
+  --spacing-tooltip: var(--zf-chrome-tooltip);
   --spacing-settings-sticky-max: var(--zf-chrome-settings-sticky-max);
   --spacing-details-toolbar: var(--zf-chrome-details-toolbar);
   --spacing-details-toolbar-item: var(--zf-chrome-details-toolbar-item);

@@ -1,3 +1,4 @@
+import { Tooltip } from '../Tooltip/Tooltip';
 import { useRef } from 'react';
 import type { KeyboardEvent } from 'react';
 import { Icon } from '../../icons';
@@ -42,6 +43,8 @@ export interface SegmentOption {
    */
   label: string;
   icon?: IconName;
+  /** Shown on hover. Says what this option means when its label alone cannot — a version number, an abbreviation. */
+  tooltip?: string;
 }
 
 export interface SegmentedProps {
@@ -130,8 +133,8 @@ export function Segmented({
         const iconOnly = !showLabels && Boolean(o.icon);
 
         return (
+          <Tooltip key={o.value} content={o.tooltip ?? ''} enabled={Boolean(o.tooltip)} className="inline-flex min-w-0">
           <button
-            key={o.value}
             ref={(el) => { refs.current[i] = el; }}
             type="button"
             role="radio"
@@ -242,6 +245,7 @@ export function Segmented({
               ? <span className="sr-only">{o.label}</span>
               : <span className="truncate">{o.label}</span>}
           </button>
+          </Tooltip>
         );
       })}
     </div>

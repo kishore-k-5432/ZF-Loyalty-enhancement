@@ -958,6 +958,18 @@
         "ariaLabel / ariaDescribedBy": "as Select"
       },
       "source": "No md on disk — built to the ARIA APG Date Picker Dialog pattern: a button opens a non-modal dialog holding a grid with a roving tabindex. Arrows move a day/week, Home/End the week, PageUp/PageDown the month (Shift: year), Enter/Space choose, Escape closes and returns focus. Reuses MENU_SURFACE and Select's fixed placement with capture-phase scroll repositioning. Displays `27 Aug 2024`. Trigger uses caret-down because `calendar` is a retired icon name with no glyph."
+    },
+    {
+      "name": "Tooltip",
+      "category": "overlay",
+      "status": "stable",
+      "use": "A short explanation on hover, most often why a control is disabled.",
+      "props": {
+        "content": "the explanation. One or two short sentences",
+        "enabled": "false renders the children alone, with no bubble and no hidden text",
+        "children": "the trigger — typically a disabled Checkbox"
+      },
+      "source": "No md — the canon has no tooltip. Drawn from the disabled-option reference screenshot (Loyalty V2): surface/inverse bubble, text/inverse body 13/20, radius lg, popover shadow, nose on the side facing the pointer, max width chrome/tooltip 240. Follows the pointer rather than the trigger box, because a Checkbox's box is as wide as its description. Portalled so the scrolling settings body cannot clip it. The text is also rendered as sr-only inside the trigger: a disabled control cannot take focus, so a hover-only reason would be lost to keyboard and screen-reader users. Admitted 2026-11-11 at Kishore's request (reviewed on the page; this repo has no Storybook config)."
     }
   ]
 }
