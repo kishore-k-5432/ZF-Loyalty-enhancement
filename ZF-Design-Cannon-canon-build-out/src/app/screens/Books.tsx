@@ -16,7 +16,7 @@ import { NewSalesContract } from './NewSalesContract';
 import { SalesContracts } from './SalesContracts';
 import { PurchaseOrders } from './PurchaseOrders';
 import { ScheduledInvoices } from './ScheduledInvoices';
-import { LoyaltyV2 } from './LoyaltyV2';
+import { LoyaltyV1 } from './LoyaltyV1';
 
 /**
  * BOOKS — the application.
@@ -146,7 +146,7 @@ export function Books() {
 
       It is also the only way `role="banner"` stays unique: SettingsBar claims
       it, and TopBar already has it. */
-  if (settingsOpen) return <LoyaltyV2 onClose={() => setSettingsOpen(false)} />;
+  if (settingsOpen) return <LoyaltyV1 onClose={() => setSettingsOpen(false)} />;
 
   return (
     <AppShell

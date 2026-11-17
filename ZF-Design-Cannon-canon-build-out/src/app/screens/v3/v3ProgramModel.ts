@@ -1,13 +1,13 @@
-import { blankCriteriaRow, clampDay, v3Period as period } from './v3Shared';
-import type { CriteriaRow, TriggerValue } from './v3Shared';
+import { clampDay, todayIso, toIso, v3Period as period } from './v3Shared';
 
 /*  VERSION 3 — the program model.
 
     A loyalty program has a TYPE, chosen at creation and fixed afterwards:
       · Points per sale   — earns on a bill (the program V1/V2 configure).
-      · Scheduled points  — awards on a date-based trigger. A standalone
-        program: its own point value, pending period and expiry, but no
-        Redemption group.  */
+      · Scheduled points  — awards on an occasion (a custom date, or each
+        customer's membership anniversary), by purchase-value slab.
+        A standalone program: its own point value, minimum points and expiry
+        (Points per sale's usage card without Availability or the window).  */
 
 export type ProgramType = 'sale' | 'scheduled';
 
@@ -58,13 +58,23 @@ export type SaleForm = ScheduleDates & UsageFields & {
   amountPerPoint: string;
 };
 
-/*  Everything a Scheduled points program configures. It is STANDALONE: its
-    own point value, availability and expiry — no Redemption group.  */
-export type ScheduledForm = ScheduleDates & TriggerValue & UsageFields & {
+/*  Everything a Scheduled points program configures. STANDALONE: its own
+    point value, and the usage fields — of which only minimum points and
+    expiry are shown; pending and the redemption window stay off.  */
+export type Occasion = 'anniversary' | 'custom';
+export type RepeatEvery = 'month' | 'quarter' | 'year';
+/*  One purchase-value slab: "INR <from> and above → <points>".  */
+export type Slab = { id: string; from: string; points: string };
+
+export type ScheduledForm = ScheduleDates & UsageFields & {
+  occasion: Occasion;
+  /** Custom date only. ISO. */
+  awardDate: string;
+  /** Custom date only. */
+  repeat: RepeatEvery;
+  /** Based on purchase value. */
+  slabs: Slab[];
   amountPerPoint: string;
-  conditionsOn: boolean;
-  criteria: CriteriaRow[];
-  points: string;
 };
 
 export type ProgramRecord = {
@@ -150,36 +160,35 @@ const BLANK_USAGE: UsageFields = {
   pointsExpiration: false, expirationMode: '', expiryCount: '', expiryUnit: 'days', expiryDate: '',
 };
 
-/*  A new Scheduled points program — trigger defaults from the spec (recurring
-    monthly on day 1, weekly on Mon if switched, 50 points); nothing else set.  */
+/*  The first day of the next calendar quarter, from today.  */
+export function nextQuarterStart(today = todayIso()): string {
+  const [y, m] = today.split('-').map(Number);
+  return toIso(new Date(y, Math.floor((m - 1) / 3) * 3 + 3, 1));
+}
+
+export function seedSlabs(): Slab[] {
+  return [
+    { id: 'slab-1', from: '75000', points: '100' },
+    { id: 'slab-2', from: '150000', points: '250' },
+    { id: 'slab-3', from: '300000', points: '500' },
+  ];
+}
+
+/*  A new Scheduled points program, with the spec's defaults: a custom date on
+    the first day of next quarter, every quarter, the seed slabs, INR 1 a
+    point. Usage starts off, as in a new Points per sale program.  */
 export function blankScheduled(): ScheduledForm {
+  const date = nextQuarterStart();
   return {
     ...NO_DATES,
     ...BLANK_USAGE,
-    trigger: 'recurring',
-    frequency: 'monthly',
-    weekdays: ['Mon'],
-    monthDay: '1',
-    amountPerPoint: '',
-    conditionsOn: false,
-    criteria: [blankCriteriaRow()],
-    points: '50',
+    occasion: 'custom',
+    awardDate: date,
+    repeat: 'quarter',
+    slabs: seedSlabs(),
+    amountPerPoint: '1',
   };
 }
-
-/*  The seeded scheduled programs: INR 10 a point, expiring 3 months after
-    they are awarded, no pending period.  */
-const SEEDED_SCHEDULED: ScheduledForm = {
-  ...blankScheduled(),
-  ...PROGRAM_DATES,
-  amountPerPoint: '10',
-  pointsExpiration: true,
-  expirationMode: 'earning',
-  expiryCount: '3',
-  expiryUnit: 'months',
-  minPoints: true,
-  minPointValue: '100',
-};
 
 export const SEED_TARGET_ID = 'p-everyday';
 
@@ -189,20 +198,30 @@ export const SEED_PROGRAMS: ProgramRecord[] = [
     sale: EXISTING_SALE, scheduled: blankScheduled(),
   },
   {
-    id: 'p-birthday', name: 'Birthday bonus', description: 'Points on customer\'s birthday', type: 'scheduled', active: true,
-    sale: BLANK_SALE,
-    scheduled: { ...SEEDED_SCHEDULED, trigger: 'birthday', points: '100' },
-  },
-  {
-    id: 'p-monthly', name: 'Monthly regulars', description: 'Monthly bonus for repeat customers', type: 'scheduled', active: true,
+    id: 'p-diwali', name: 'Diwali bonus', description: 'Festive bonus points based on the year\'s purchases', type: 'scheduled', active: true,
     sale: BLANK_SALE,
     scheduled: {
-      ...SEEDED_SCHEDULED,
-      conditionsOn: true,
-      criteria: [
-        { id: 'seed-c1', join: 'AND', field: 'group', comparator: 'in', value: '', values: ['Gold'] },
-        { id: 'seed-c2', join: 'AND', field: 'purchases', comparator: 'gt', value: '2', values: [] },
-      ],
+      ...blankScheduled(), ...PROGRAM_DATES,
+      awardDate: '2026-10-25', repeat: 'year',
+      pointsExpiration: true, expirationMode: 'date', expiryDate: '2026-11-10',
+    },
+  },
+  {
+    id: 'p-quarterly', name: 'Quarterly purchase rewards', description: 'Points by last quarter\'s purchase value', type: 'scheduled', active: true,
+    sale: BLANK_SALE,
+    //  The 1 Apr 2027 award needs program dates that reach it.
+    scheduled: {
+      ...blankScheduled(), ...PROGRAM_DATES, programEnd: '2027-12-31',
+      awardDate: '2027-04-01', repeat: 'quarter',
+      minPoints: true, minPointValue: '100',
+      pointsExpiration: true, expirationMode: 'earning', expiryCount: '30', expiryUnit: 'days',
+    },
+  },
+  {
+    id: 'p-anniversary', name: 'Membership anniversary bonus', description: 'Points on each customer\'s membership anniversary', type: 'scheduled', active: true,
+    sale: BLANK_SALE,
+    scheduled: { ...blankScheduled(), ...PROGRAM_DATES, occasion: 'anniversary',
+      pointsExpiration: true, expirationMode: 'earning', expiryCount: '30', expiryUnit: 'days',
     },
   },
 ];

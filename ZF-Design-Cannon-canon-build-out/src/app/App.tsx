@@ -3,7 +3,6 @@ import type { SettingsLink } from '@canon';
 import { Segmented } from '@canon';
 import { LoyaltyV1 } from './screens/LoyaltyV1';
 import { LoyaltyV2 } from './screens/LoyaltyV2';
-import { LoyaltyV3 } from './screens/LoyaltyV3';
 import { V3ProgramList } from './screens/v3/V3ProgramList';
 import type { V3Tab } from './screens/v3/V3ProgramList';
 import { SEED_PROGRAMS, SEED_TARGET_ID, blankRecord, cloneRecord } from './screens/v3/v3ProgramModel';
@@ -17,29 +16,30 @@ import { newId } from './screens/v3/v3Shared';
  * ── THE HUB ─────────────────────────────────────────────────────────────────
  * The POC opens on the Loyalty Program LIST. Opening a program shows its
  * editor:
- *   · a Points per sale program shows the V1 | V2 | V3 switch beside its title
- *     — V1 and V2 are the earlier flows, V3 adds the pending period;
- *   · a Scheduled points program exists only in V3, so it has no switch.
+ *   · a Points per sale program shows the V1 | V2 switch beside its title —
+ *     V1 is the earlier flow; V2 (formerly V3) has program types, the
+ *     pending period and the redemption window / expiry choice;
+ *   · a Scheduled points program exists only in V2, so it has no switch.
  * The saved programs live here, so they survive switching versions.
  *
  * ── HASH ROUTES ─────────────────────────────────────────────────────────────
  *   (bare) / #programs          the list
- *   #v1 · #v2 · #v3             the seeded Points per sale program, in that
+ *   #v1 · #v2                   the seeded Points per sale program, in that
  *                               version. These links are shared with DRIs, so
  *                               they must keep opening the editor directly.
+ *   #v3                         the old V3 link → V2, which it now is
  *   #programs/scheduled         a scheduled program is open (reload → list)
  *   #/settings/loyalty-program  the settings rail's link (V1/V2) → the list;
  *                               other rail links are ignored
  * Only the hash is read — never the host or port.
  */
-const VERSIONS = ['v1', 'v2', 'v3'] as const;
+const VERSIONS = ['v1', 'v2'] as const;
 type Version = (typeof VERSIONS)[number];
 
 /*  What each version changes — shown when hovering its pill.  */
 const VERSION_NOTES: Record<Version, string> = {
   v1: 'Points expiry moved into a section of its own.',
-  v2: 'Redemption window or points expiration — one or the other, not both.',
-  v3: 'Adds the points pending period.',
+  v2: 'Adds the points pending period, and a redemption window or points expiration — one or the other.',
 };
 
 type View =
@@ -52,6 +52,8 @@ type Route = { version?: Version; list?: boolean; scheduled?: boolean; ignore?: 
 function readRoute(): Route {
   const h = window.location.hash.replace(/^#\/?/, '').toLowerCase();
   if ((VERSIONS as readonly string[]).includes(h)) return { version: h as Version };
+  //  V3 became V2; a shared #v3 link still opens it.
+  if (h === 'v3') return { version: 'v2' };
   if (h.startsWith('settings/')) return h === 'settings/loyalty-program' ? { list: true } : { ignore: true };
   if (h === 'programs/scheduled') return { scheduled: true };
   return { list: true };
@@ -116,7 +118,7 @@ function restoreScroll(mark: ScrollMark) {
 
 export function App() {
   const [initialRoute] = useState(readRoute);
-  const [version, setVersion] = useState<Version>(initialRoute.version ?? 'v3');
+  const [version, setVersion] = useState<Version>(initialRoute.version ?? 'v2');
   const [view, setView] = useState<View>(() => (initialRoute.version
     ? { kind: 'program', id: SEED_TARGET_ID, type: 'sale', session: nextSession() }
     : { kind: 'list' }));
@@ -234,14 +236,13 @@ export function App() {
   const record = view.id ? programs.find((p) => p.id === view.id) : undefined;
   const preview = { previewOpen, onPreviewOpenChange: setPreviewOpen };
 
-  //  V1 and V2 exist only for Points per sale.
-  if (view.type === 'sale' && version !== 'v3') {
-    const Screen = version === 'v1' ? LoyaltyV1 : LoyaltyV2;
-    return <Screen key={`${view.session}-${version}`} isNew={isNew} onClose={toList} versionSwitch={versionSwitch} {...preview} />;
+  //  V1 exists only for Points per sale.
+  if (view.type === 'sale' && version === 'v1') {
+    return <LoyaltyV1 key={`${view.session}-${version}`} isNew={isNew} onClose={toList} versionSwitch={versionSwitch} {...preview} />;
   }
 
   return (
-    <LoyaltyV3
+    <LoyaltyV2
       key={view.session}
       initial={record ? cloneRecord(record) : blankRecord('sale')}
       isNew={isNew}
