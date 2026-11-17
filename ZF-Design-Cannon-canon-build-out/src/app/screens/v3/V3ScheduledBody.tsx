@@ -1,25 +1,25 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import {
-  Button, DatePicker, Divider, Field, Icon, Inline, InputField, Select, Stack, Surface, Text, Tooltip,
+  Banner, Button, DatePicker, Divider, Field, Icon, Inline, InputField, Select, Stack, Surface, Text, Tooltip,
 } from '@canon';
 import { V3SchedulePanel } from './V3SchedulePanel';
 import { V3UsageCard } from './V3UsageCard';
 import { V3spRateRanges } from './v3spRateRanges';
 import { V3OptionCard, V3PreviewRow, V3RuleRow, v3Fmt as fmt, v3Period as period } from './v3Shared';
-import type { ScheduledForm } from './v3ProgramModel';
+import { PURCHASE_PERIOD_LABEL } from './v3ProgramModel';
+import type { PurchasePeriod, ScheduledForm } from './v3ProgramModel';
 import {
-  inr, nextAward, purchasePeriod, scheduledErrors, summary, tryRate,
+  inr, nextAward, periodMismatch, scheduledErrors, summary, tryRate,
 } from './v3spModel';
 
 /*  VERSION 3 — the body of a SCHEDULED POINTS program.
 
     A standalone program. Its cards, in order:
       · Points Rewarding Rules
+          How to award  — the purchase period, the ranges, Amount per Point.
           When to award — Occasion (custom date / membership anniversary),
                           the date and how it repeats.
-          How to award  — a rate on purchase value, single or by range.
-          Amount per Point.
       · Points Usage Configuration — Points per sale's own card (V3UsageCard),
         without Availability or the Redemption Window: minimum points and
         Expiry.
@@ -44,6 +44,8 @@ const OCCASION_OPTIONS = [
   { value: 'anniversary', label: 'Membership anniversary' },
   { value: 'custom', label: 'Custom date' },
 ];
+const PURCHASE_PERIOD_OPTIONS = (Object.keys(PURCHASE_PERIOD_LABEL) as PurchasePeriod[])
+  .map((value) => ({ value, label: PURCHASE_PERIOD_LABEL[value] }));
 const REPEAT_OPTIONS = [
   { value: 'month', label: 'Every month' },
   { value: 'quarter', label: 'Every quarter' },
@@ -96,7 +98,7 @@ export function V3ScheduledBody({ general, form: f, onChange: set, tried, previe
   ];
 
   const tryResult = tryRate(f, Number(purchased) || 0);
-  const countedTip = `Purchases counted: ${purchasePeriod(f)}`;
+  const mismatch = periodMismatch(f);
 
   return (
     <Inline gap={16} align="start" className="flex-nowrap pe-10 pb-20">
@@ -106,24 +108,51 @@ export function V3ScheduledBody({ general, form: f, onChange: set, tried, previe
         <Stack gap={16} className="pt-15 max-w-settings-form">
           {/*  1. POINTS REWARDING RULES  */}
           <V3OptionCard title="Points Rewarding Rules" icon="gift">
-            {/*  1a. When to award  */}
+            {/*  1a. How to award — the purchase period, the ranges, the point value.  */}
+            <Stack gap={8}>
+              <Subheading>How to award</Subheading>
+
+              <Stack gap={4}>
+                <Stack gap={0} className="w-field-sm shrink-0">
+                  <Field label="Purchase period" required>
+                    {({ id, required, describedBy }) => (
+                      <Select id={id} required={required} ariaDescribedBy={describedBy} value={f.purchasePeriod} onChange={(v) => update({ purchasePeriod: v as PurchasePeriod })} options={PURCHASE_PERIOD_OPTIONS} />
+                    )}
+                  </Field>
+                </Stack>
+                {/*  A warning, not an error: a mismatch can be deliberate.  */}
+                {mismatch ? <Banner tone="warning">{mismatch}</Banner> : null}
+              </Stack>
+
+              <V3spRateRanges ranges={f.ranges} onChange={update} errors={e} />
+
+              <Inline gap={6} align="end" className="flex-nowrap">
+                <Stack gap={0} className="w-field-md shrink-0">
+                  <Field label="Amount per Point" required error={Boolean(e.amount)} message={e.amount}>
+                    {({ id, required, error, describedBy }) => (
+                      <InputField id={id} required={required} error={error} aria-describedby={describedBy} format="numeric" prefix="INR" align="end" value={f.amountPerPoint} onChange={(ev) => update({ amountPerPoint: ev.target.value })} />
+                    )}
+                  </Field>
+                </Stack>
+                <V3spInfoTip tip={AMOUNT_PER_POINT_TIP} />
+              </Inline>
+            </Stack>
+
+            <Divider gap="none" />
+
+            {/*  1b. When to award  */}
             <Stack gap={8}>
               <Subheading>When to award</Subheading>
 
               <Stack gap={4}>
                 <Inline gap={8} align="start" wrap>
-                  {/*  Which purchases are counted sits in an ⓘ beside the last
-                       field of the row: Repeat, or Occasion when Repeat is hidden.  */}
-                  <Inline gap={2} align="end" className="flex-nowrap">
-                    <Stack gap={0} className="w-field-xs shrink-0">
-                      <Field label="Occasion" required>
-                        {({ id, required, describedBy }) => (
-                          <Select id={id} required={required} ariaDescribedBy={describedBy} value={f.occasion} onChange={(v) => update({ occasion: v as ScheduledForm['occasion'] })} options={OCCASION_OPTIONS} />
-                        )}
-                      </Field>
-                    </Stack>
-                    {f.occasion === 'anniversary' ? <V3spInfoTip tip={countedTip} /> : null}
-                  </Inline>
+                  <Stack gap={0} className="w-field-xs shrink-0">
+                    <Field label="Occasion" required>
+                      {({ id, required, describedBy }) => (
+                        <Select id={id} required={required} ariaDescribedBy={describedBy} value={f.occasion} onChange={(v) => update({ occasion: v as ScheduledForm['occasion'] })} options={OCCASION_OPTIONS} />
+                      )}
+                    </Field>
+                  </Stack>
 
                   {f.occasion === 'custom' ? (
                     <>
@@ -134,16 +163,13 @@ export function V3ScheduledBody({ general, form: f, onChange: set, tried, previe
                           )}
                         </Field>
                       </Stack>
-                      <Inline gap={2} align="end" className="flex-nowrap">
-                        <Stack gap={0} className="w-field-sm shrink-0">
-                          <Field label="Repeat">
-                            {({ id, describedBy }) => (
-                              <Select id={id} ariaDescribedBy={describedBy} value={f.repeat} onChange={(v) => update({ repeat: v as ScheduledForm['repeat'] })} options={REPEAT_OPTIONS} />
-                            )}
-                          </Field>
-                        </Stack>
-                        <V3spInfoTip tip={countedTip} />
-                      </Inline>
+                      <Stack gap={0} className="w-field-sm shrink-0">
+                        <Field label="Repeat">
+                          {({ id, describedBy }) => (
+                            <Select id={id} ariaDescribedBy={describedBy} value={f.repeat} onChange={(v) => update({ repeat: v as ScheduledForm['repeat'] })} options={REPEAT_OPTIONS} />
+                          )}
+                        </Field>
+                      </Stack>
                     </>
                   ) : null}
                 </Inline>
@@ -151,39 +177,6 @@ export function V3ScheduledBody({ general, form: f, onChange: set, tried, previe
                 {e.dateRange ? <Text size="body-sm" tone="danger">{e.dateRange}</Text> : null}
               </Stack>
             </Stack>
-
-            <Divider gap="none" />
-
-            {/*  1b. How to award  */}
-            <Stack gap={8}>
-              <Subheading>How to award</Subheading>
-
-                <Stack gap={8}>
-                  <V3spRateRanges
-                    rateType={f.rateType}
-                    singleForEvery={f.singleForEvery}
-                    singlePoints={f.singlePoints}
-                    ranges={f.ranges}
-                    onChange={update}
-                    errors={e}
-                  />
-
-                  <Text size="body-sm" tone="secondary">
-                    The customer&apos;s total purchase value for the period falls into one range, and that range&apos;s rate applies to the whole total. Totals below the first range earn nothing. Value is net of returns.
-                  </Text>
-                </Stack>
-            </Stack>
-
-            <Inline gap={6} align="end" className="flex-nowrap">
-              <Stack gap={0} className="w-field-md shrink-0">
-                <Field label="Amount per Point" required error={Boolean(e.amount)} message={e.amount}>
-                  {({ id, required, error, describedBy }) => (
-                    <InputField id={id} required={required} error={error} aria-describedby={describedBy} format="numeric" prefix="INR" align="end" value={f.amountPerPoint} onChange={(ev) => update({ amountPerPoint: ev.target.value })} />
-                  )}
-                </Field>
-              </Stack>
-              <V3spInfoTip tip={AMOUNT_PER_POINT_TIP} />
-            </Inline>
           </V3OptionCard>
 
           {/*  2. POINTS USAGE CONFIGURATION — Points per sale's card, without

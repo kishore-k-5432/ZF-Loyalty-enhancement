@@ -64,11 +64,17 @@ export type SaleForm = ScheduleDates & UsageFields & {
 export type Occasion = 'anniversary' | 'custom';
 /*  'none': awarded once, on the date.  */
 export type RepeatEvery = 'month' | 'quarter' | 'year' | 'none';
-/*  Points on purchase value, drawn like Points per sale's rewarding rules.
-    Single: one rate on any total. Multiple: the total falls into one range
-    and that range's rate applies to all of it. An empty `to` on the last
-    range means "and above".  */
-export type RateType = 'single' | 'multiple';
+/*  Points on purchase value, drawn like Points per sale's Multiple Criteria:
+    the total for the purchase period falls into one range and that range's
+    rate applies to all of it. An empty `to` on the last range means "and
+    above".  */
+export type PurchasePeriod = '1m' | '3m' | '6m' | '12m';
+export const PURCHASE_PERIOD_LABEL: Record<PurchasePeriod, string> = {
+  '1m': 'Last 1 month',
+  '3m': 'Last 3 months',
+  '6m': 'Last 6 months',
+  '12m': 'Last 12 months',
+};
 export type RateRange = { id: string; from: string; to: string; forEvery: string; points: string };
 
 export type ScheduledForm = ScheduleDates & UsageFields & {
@@ -77,11 +83,8 @@ export type ScheduledForm = ScheduleDates & UsageFields & {
   awardDate: string;
   /** Custom date only. */
   repeat: RepeatEvery;
-  rateType: RateType;
-  /** Single Criteria. */
-  singleForEvery: string;
-  singlePoints: string;
-  /** Multiple Criteria. */
+  /** Where the purchase value is counted from. */
+  purchasePeriod: PurchasePeriod;
   ranges: RateRange[];
   amountPerPoint: string;
 };
@@ -194,9 +197,7 @@ export function blankScheduled(): ScheduledForm {
     occasion: 'custom',
     awardDate: date,
     repeat: 'quarter',
-    rateType: 'multiple',
-    singleForEvery: '1000',
-    singlePoints: '1',
+    purchasePeriod: '1m',
     ranges: seedRanges(),
     amountPerPoint: '1',
   };
@@ -214,7 +215,7 @@ export const SEED_PROGRAMS: ProgramRecord[] = [
     sale: BLANK_SALE,
     scheduled: {
       ...blankScheduled(), ...PROGRAM_DATES,
-      awardDate: '2026-10-25', repeat: 'year',
+      awardDate: '2026-10-25', repeat: 'year', purchasePeriod: '12m',
       pointsExpiration: true, expirationMode: 'date', expiryDate: '2026-11-10',
     },
   },
@@ -224,7 +225,7 @@ export const SEED_PROGRAMS: ProgramRecord[] = [
     //  The 1 Apr 2027 award needs program dates that reach it.
     scheduled: {
       ...blankScheduled(), ...PROGRAM_DATES, programEnd: '2027-12-31',
-      awardDate: '2027-04-01', repeat: 'quarter',
+      awardDate: '2027-04-01', repeat: 'quarter', purchasePeriod: '3m',
       minPoints: true, minPointValue: '100',
       pointsExpiration: true, expirationMode: 'earning', expiryCount: '30', expiryUnit: 'days',
     },
@@ -232,7 +233,7 @@ export const SEED_PROGRAMS: ProgramRecord[] = [
   {
     id: 'p-anniversary', name: 'Membership anniversary bonus', description: 'Points on each customer\'s membership anniversary', type: 'scheduled', active: true,
     sale: BLANK_SALE,
-    scheduled: { ...blankScheduled(), ...PROGRAM_DATES, occasion: 'anniversary',
+    scheduled: { ...blankScheduled(), ...PROGRAM_DATES, occasion: 'anniversary', purchasePeriod: '12m',
       pointsExpiration: true, expirationMode: 'earning', expiryCount: '30', expiryUnit: 'days',
     },
   },

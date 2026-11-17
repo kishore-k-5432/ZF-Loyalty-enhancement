@@ -1,26 +1,21 @@
 import type { ReactNode } from 'react';
-import { Button, Field, Icon, Inline, InputField, RadioGroup, Stack, Text } from '@canon';
+import { Button, Field, Icon, Inline, InputField, Stack, Text } from '@canon';
 import { newId } from './v3Shared';
-import type { RateRange, RateType } from './v3ProgramModel';
+import type { RateRange } from './v3ProgramModel';
 import type { RangeError } from './v3spModel';
 
 /*  VERSION 3 — SCHEDULED POINTS only (`v3sp`). Points on purchase value.
 
-    A copy of Points per sale's rewarding-rules block (Loyalty Type, Order
-    Value Range, For Every → Points Earned, Add New Range), drawn the same way
-    but relabelled, and with what that block does not have: several working
+    A copy of Points per sale's Multiple Criteria block (Order Value Range,
+    For Every → Points Earned, Add New Range), drawn the same way but
+    relabelled, and with what that block does not have: several working
     ranges, removable rows, an open-ended last range and validation. The
     Points per sale block is left exactly as it is.  */
 
 export interface V3spRateRangesProps {
-  rateType: RateType;
-  singleForEvery: string;
-  singlePoints: string;
   ranges: RateRange[];
-  onChange: (patch: {
-    rateType?: RateType; singleForEvery?: string; singlePoints?: string; ranges?: RateRange[];
-  }) => void;
-  errors: { singleForEvery?: string; singlePoints?: string; ranges: RangeError[] };
+  onChange: (patch: { ranges: RateRange[] }) => void;
+  errors: { ranges: RangeError[] };
 }
 
 /*  Shown with Indian grouping; the numeric filter strips the commas again on
@@ -49,8 +44,7 @@ function Chevrons() {
   );
 }
 
-export function V3spRateRanges({ rateType, singleForEvery, singlePoints, ranges, onChange, errors }: V3spRateRangesProps) {
-  const multiple = rateType === 'multiple';
+export function V3spRateRanges({ ranges, onChange, errors }: V3spRateRangesProps) {
   const patch = (id: string, p: Partial<RateRange>) => onChange({ ranges: ranges.map((r) => (r.id === id ? { ...r, ...p } : r)) });
   const remove = (id: string) => onChange({ ranges: ranges.filter((r) => r.id !== id) });
   //  A new range starts where the last one ends, at the same rate step. An
@@ -72,45 +66,7 @@ export function V3spRateRanges({ rateType, singleForEvery, singlePoints, ranges,
   };
 
   return (
-    <Stack gap={12}>
-      <RadioGroup
-        label="Loyalty Type"
-        required
-        layout="inline"
-        value={rateType}
-        onChange={(v) => onChange({ rateType: v as RateType })}
-        options={[
-          { value: 'single', label: 'Single Criteria' },
-          { value: 'multiple', label: 'Multiple Criteria' },
-        ]}
-      />
 
-      {!multiple ? (
-        /*  Single Criteria: one rate on any purchase total.  */
-        <Stack gap={2}>
-          <Inline gap={6} align="end" className="flex-nowrap">
-            <Stack gap={0} className="w-field-sm shrink-0">
-              <Field label="For Every" required error={Boolean(errors.singleForEvery)}>
-                {({ id, required, error, describedBy }) => (
-                  <InputField id={id} required={required} error={error} aria-describedby={describedBy} format="numeric" prefix="INR" align="end" value={grouped(singleForEvery)} onChange={(e) => onChange({ singleForEvery: e.target.value })} />
-                )}
-              </Field>
-            </Stack>
-            <Chevrons />
-            <Stack gap={0} className="w-field-sm shrink-0">
-              <Field label="Points awarded" required error={Boolean(errors.singlePoints)}>
-                {({ id, required, error, describedBy }) => (
-                  <InputField id={id} required={required} error={error} aria-describedby={describedBy} format="numeric" prefix="Points" align="end" value={grouped(singlePoints)} onChange={(e) => onChange({ singlePoints: e.target.value })} />
-                )}
-              </Field>
-            </Stack>
-          </Inline>
-          {errors.singleForEvery || errors.singlePoints ? (
-            <Text size="body-sm" tone="danger">{errors.singleForEvery ?? errors.singlePoints}</Text>
-          ) : null}
-        </Stack>
-      ) : (
-        /*  Multiple Criteria: the range rows.  */
         <Stack gap={6}>
           {ranges.map((r, i) => {
             const e = errors.ranges[i] ?? {};
@@ -195,7 +151,5 @@ export function V3spRateRanges({ rateType, singleForEvery, singlePoints, ranges,
             Add New Range
           </Button>
         </Stack>
-      )}
-    </Stack>
   );
 }

@@ -1,6 +1,6 @@
 import { shiftPeriod, todayIso, v3Fmt as fmt } from './v3Shared';
 import { dateBounds } from './v3ProgramModel';
-import type { RateRange, RepeatEvery, ScheduledForm } from './v3ProgramModel';
+import type { PurchasePeriod, RateRange, RepeatEvery, ScheduledForm } from './v3ProgramModel';
 
 /*  VERSION 3 — SCHEDULED POINTS only (`v3sp`). The copy, dates and checks
     behind V3ScheduledBody. Nothing in Points per sale reads this file.  */
@@ -34,18 +34,6 @@ export function whenHelper(f: ScheduledForm): string {
   return `Awarded ${EVERY[f.repeat].toLowerCase()} from ${fmt(f.awardDate)}.`;
 }
 
-/*  "Purchases counted: <period>".  */
-export function purchasePeriod(f: ScheduledForm): string {
-  if (f.occasion === 'anniversary') return 'the customer\'s last membership year (12 months before their anniversary)';
-  if (f.repeat === 'month') return 'the previous month';
-  //  A one-off award counts the 12 months before it, as a yearly one does.
-  if (f.repeat === 'year' || f.repeat === 'none') return 'the previous 12 months';
-  const p = parts(f.awardDate);
-  if (!p) return 'the previous quarter';
-  const first = MONTHS[(p[1] + 9) % 12]; const last = MONTHS[(p[1] + 11) % 12];
-  return `the previous quarter (${first}–${last} for the ${dayMonth(f.awardDate)} award)`;
-}
-
 const n = (v: string) => Number(v) || 0;
 const pointWord = (p: number) => (p === 1 ? 'point' : 'points');
 
@@ -67,21 +55,39 @@ function rateList(ranges: RateRange[]): string {
   }).join(', ');
 }
 
-export function summary(f: ScheduledForm): string {
-  const single = `${inr(n(f.singlePoints))} ${pointWord(n(f.singlePoints))} for every INR ${inr(n(f.singleForEvery))}`;
+/*  "since the last award" / "in the last 3 months".  */
+const PERIOD_PHRASE: Record<PurchasePeriod, string> = {
+  '1m': 'in the last month',
+  '3m': 'in the last 3 months',
+  '6m': 'in the last 6 months',
+  '12m': 'in the last 12 months',
+};
 
-  if (f.occasion === 'anniversary') {
-    return f.rateType === 'single'
-      ? `On each customer's membership anniversary, they get ${single} of their last membership year's purchases.`
-      : `On each customer's membership anniversary, they get points on their last membership year's purchases: ${rateList(f.ranges)}.`;
-  }
+/*  How many months apart the awards are — anniversary is yearly; a one-off
+    (Repeat: None) has no next award, so any period is fine.  */
+const PERIOD_MONTHS: Record<PurchasePeriod, number> = { '1m': 1, '3m': 3, '6m': 6, '12m': 12 };
+const PERIOD_WORDS: Record<PurchasePeriod, string> = { '1m': 'last 1 month\'s', '3m': 'last 3 months\'', '6m': 'last 6 months\'', '12m': 'last 12 months\'' };
+
+/*  The warning when the purchase period does not match the gap between
+    awards: longer, and the same purchases count in more than one award;
+    shorter, and purchases in between earn nothing. Null when they match.  */
+export function periodMismatch(f: ScheduledForm): string | null {
+  const gap = f.occasion === 'anniversary' ? 12 : f.repeat === 'none' ? null : STEP[f.repeat];
+  const months = PERIOD_MONTHS[f.purchasePeriod];
+  if (gap === null || months === gap) return null;
+  const every = f.occasion === 'anniversary' ? 'once a year' : `every ${f.repeat}`;
+  return months > gap
+    ? `Points are awarded ${every}, but the ${PERIOD_WORDS[f.purchasePeriod]} purchases are counted, so the same purchases will count in more than one award.`
+    : `Points are awarded ${every}, but only the ${PERIOD_WORDS[f.purchasePeriod]} purchases are counted, so purchases in between will earn nothing.`;
+}
+
+export function summary(f: ScheduledForm): string {
+  const on = `purchases ${PERIOD_PHRASE[f.purchasePeriod]}: ${rateList(f.ranges)}`;
+  if (f.occasion === 'anniversary') return `On each customer's membership anniversary, they get points on their ${on}.`;
 
   const lead = f.repeat === 'none' ? `On ${fmt(f.awardDate)}`
     : f.repeat === 'year' ? `Every year on ${dayMonth(f.awardDate)}` : `${EVERY[f.repeat]} from ${fmt(f.awardDate)}`;
-  const last = f.repeat === 'month' ? 'last month\'s' : f.repeat === 'quarter' ? 'last quarter\'s' : 'the last 12 months\'';
-  return f.rateType === 'single'
-    ? `${lead}, customers get ${single} of ${last} purchases.`
-    : `${lead}, customers get points on ${last} purchases: ${rateList(f.ranges)}.`;
+  return `${lead}, customers get points on their ${on}.`;
 }
 
 /*  The next award on or after today, within the program dates.  */
@@ -108,10 +114,7 @@ export type ScheduledErrors = {
   /** Award date outside the program dates. */
   dateRange?: string;
   amount?: string;
-  /** Single Criteria. */
-  singleForEvery?: string;
-  singlePoints?: string;
-  /** Multiple Criteria, one per row. */
+  /** One per range row. */
   ranges: RangeError[];
 };
 
@@ -129,10 +132,7 @@ export function scheduledErrors(f: ScheduledForm, tried = true): ScheduledErrors
     e.dateRange = `Award date must be within the program dates (${fmt(start)} – ${fmt(end)}).`;
   }
 
-  if (f.rateType === 'single') {
-    e.singleForEvery = positive(f.singleForEvery, 'Enter the purchase value per rate step.');
-    e.singlePoints = positive(f.singlePoints, 'Points must be greater than 0.');
-  } else {
+  {
     const last = f.ranges.length - 1;
     e.ranges = f.ranges.map((r, i) => {
       const re: RangeError = {};
@@ -152,7 +152,7 @@ export function scheduledErrors(f: ScheduledForm, tried = true): ScheduledErrors
 }
 
 export function hasErrors(e: ScheduledErrors): boolean {
-  return Boolean(e.date || e.dateRange || e.amount || e.singleForEvery || e.singlePoints)
+  return Boolean(e.date || e.dateRange || e.amount)
     || e.ranges.some((r) => r.from || r.to || r.forEvery || r.points);
 }
 
@@ -161,13 +161,6 @@ export function hasErrors(e: ScheduledErrors): boolean {
 export function tryRate(f: ScheduledForm, purchased: number): string {
   const apv = n(f.amountPerPoint);
   const earn = (forEvery: number, pts: number) => Math.floor(purchased / forEvery) * pts;
-
-  if (f.rateType === 'single') {
-    const fe = n(f.singleForEvery); const p = n(f.singlePoints);
-    if (!(fe > 0 && p > 0)) return 'Set the rate to see what a customer gets.';
-    const got = earn(fe, p);
-    return `For every INR ${inr(fe)} → ${inr(p)} ${pointWord(p)} → ${inr(got)} ${pointWord(got)} (INR ${inr(got * apv)}).`;
-  }
 
   const usable = f.ranges
     .filter((r) => n(r.from) > 0 && n(r.forEvery) > 0 && n(r.points) > 0)
