@@ -17,6 +17,11 @@ import { SETTINGS_SECTIONS } from '../data/settings';
 
 export interface LoyaltyV2Props {
   onClose: () => void;
+  /** Program create mode: blank form, title "New Loyalty Program". */
+  isNew?: boolean;
+  /** Live preview show / hide. Optional — local state when omitted. */
+  previewOpen?: boolean;
+  onPreviewOpenChange?: (open: boolean) => void;
   /** The V1 | V2 switch, rendered beside the page title. Owned by `App`. */
   versionSwitch?: ReactNode;
 }
@@ -133,27 +138,34 @@ function CheckRow({ check, children }: { check: Check; children?: ReactNode }) {
   );
 }
 
-export function LoyaltyV2({ onClose, versionSwitch }: LoyaltyV2Props) {
+export function LoyaltyV2({ onClose, versionSwitch, isNew = false, previewOpen, onPreviewOpenChange }: LoyaltyV2Props) {
+  //  Live preview show / hide — owned by App when it passes it, so the
+  //  choice survives a version switch; local otherwise.
+  const [localPreviewOpen, setLocalPreviewOpen] = useState(true);
+  const previewIsOpen = previewOpen ?? localPreviewOpen;
+  const setPreviewIsOpen = onPreviewOpenChange ?? setLocalPreviewOpen;
+  //  Loyalty Type: fixed on an existing program, chosen on a new one.
+  const [loyaltyType, setLoyaltyType] = useState(isNew ? '' : 'multiple');
   //  Redeeming preferences
-  const [minPoints, setMinPoints] = useState(true);
-  const [minPointValue, setMinPointValue] = useState('100');
+  const [minPoints, setMinPoints] = useState(!isNew);
+  const [minPointValue, setMinPointValue] = useState(isNew ? '' : '100');
   //  Redemption Window — off by default, because Points Expiration is on and
   //  the two cannot both be enabled.
   const [redemptionStartOn, setRedemptionStartOn] = useState(false);
-  const [redemptionStart, setRedemptionStart] = useState('2026-10-15');
-  const [redemptionEnd, setRedemptionEnd] = useState('2026-12-31');
+  const [redemptionStart, setRedemptionStart] = useState(isNew ? '' : '2026-10-15');
+  const [redemptionEnd, setRedemptionEnd] = useState(isNew ? '' : '2026-12-31');
 
   //  Points expiration
-  const [pointsExpiration, setPointsExpiration] = useState(true);
-  const [expirationMode, setExpirationMode] = useState('earning');
-  const [expiryCount, setExpiryCount] = useState('3');
-  const [expiryUnit, setExpiryUnit] = useState('months');
+  const [pointsExpiration, setPointsExpiration] = useState(!isNew);
+  const [expirationMode, setExpirationMode] = useState(isNew ? '' : 'earning');
+  const [expiryCount, setExpiryCount] = useState(isNew ? '' : '3');
+  const [expiryUnit, setExpiryUnit] = useState(isNew ? 'days' : 'months');
   const [expiryDate, setExpiryDate] = useState('');
 
   //  Schedule program
-  const [programDates, setProgramDates] = useState(true);
-  const [programStart, setProgramStart] = useState('2026-10-01');
-  const [programEnd, setProgramEnd] = useState('2026-12-31');
+  const [programDates, setProgramDates] = useState(!isNew);
+  const [programStart, setProgramStart] = useState(isNew ? '' : '2026-10-01');
+  const [programEnd, setProgramEnd] = useState(isNew ? '' : '2026-12-31');
   const [neverExpire, setNeverExpire] = useState(false);
 
   //  Live preview simulator — a hypothetical customer at the till.
@@ -219,7 +231,7 @@ export function LoyaltyV2({ onClose, versionSwitch }: LoyaltyV2Props) {
       header={(
         <Inline justify="between" align="center" grow>
           <Inline gap={8} align="center">
-            <Text as="h1" size="title" weight="regular">Edit Loyalty Program</Text>
+            <Text as="h1" size="title" weight="regular">{isNew ? 'New Loyalty Program' : 'Edit Loyalty Program'}</Text>
             {versionSwitch}
           </Inline>
           <Button type="button" emphasis="tertiary" size="md" icon="close" label="Close editor" onClick={onClose} />
@@ -248,7 +260,7 @@ export function LoyaltyV2({ onClose, versionSwitch }: LoyaltyV2Props) {
             <Stack gap={0} className="w-field-xl shrink-0">
               <Field label="Program Name" required>
                 {({ id, required, describedBy }) => (
-                  <InputField id={id} required={required} aria-describedby={describedBy} readOnly defaultValue="testing loyality" />
+                  <InputField id={id} required={required} aria-describedby={describedBy} readOnly={!isNew} defaultValue={isNew ? '' : 'Everyday Rewards'} />
                 )}
               </Field>
             </Stack>
@@ -256,7 +268,7 @@ export function LoyaltyV2({ onClose, versionSwitch }: LoyaltyV2Props) {
             <Stack gap={0} className="w-field-xl shrink-0">
               <Field label="Description">
                 {({ id, describedBy }) => (
-                  <Textarea id={id} aria-describedby={describedBy} rows={3} readOnly defaultValue="" />
+                  <Textarea id={id} aria-describedby={describedBy} rows={3} readOnly={!isNew} defaultValue={isNew ? '' : 'Earn points on every purchase at any store.'} />
                 )}
               </Field>
             </Stack>
@@ -269,10 +281,10 @@ export function LoyaltyV2({ onClose, versionSwitch }: LoyaltyV2Props) {
             <RadioGroup
               label="Loyalty Type"
               required
-              disabled
+              disabled={!isNew}
               layout="inline"
-              value="multiple"
-              onChange={() => undefined}
+              value={loyaltyType}
+              onChange={setLoyaltyType}
               options={[
                 { value: 'single', label: 'Single Criteria' },
                 { value: 'multiple', label: 'Multiple Criteria' },
@@ -289,19 +301,19 @@ export function LoyaltyV2({ onClose, versionSwitch }: LoyaltyV2Props) {
                           id={id}
                           required={required}
                           aria-describedby={describedBy}
-                          readOnly
+                          readOnly={!isNew}
                           prefix="INR"
                           align="end"
-                          defaultValue="1"
+                          defaultValue={isNew ? '' : '1'}
                           className="min-w-0 rounded-e-none border-e-0"
                         />
                         <InputField
                           aria-label="Order value range, to, INR"
-                          readOnly
+                          readOnly={!isNew}
                           prefix="To"
                           affix="plain"
                           align="end"
-                          defaultValue="100"
+                          defaultValue={isNew ? '' : '100'}
                           className="min-w-0 rounded-s-none border-s-0"
                         />
                       </Inline>
@@ -313,7 +325,7 @@ export function LoyaltyV2({ onClose, versionSwitch }: LoyaltyV2Props) {
                   <Stack gap={0} className="w-field-xs shrink-0">
                     <Field label="For Every" required>
                       {({ id, required, describedBy }) => (
-                        <InputField id={id} required={required} aria-describedby={describedBy} readOnly prefix="INR" align="end" defaultValue="1" />
+                        <InputField id={id} required={required} aria-describedby={describedBy} readOnly={!isNew} prefix="INR" align="end" defaultValue={isNew ? '' : '1'} />
                       )}
                     </Field>
                   </Stack>
@@ -326,7 +338,7 @@ export function LoyaltyV2({ onClose, versionSwitch }: LoyaltyV2Props) {
                   <Stack gap={0} className="w-field-xs shrink-0">
                     <Field label="Points Earned" required>
                       {({ id, required, describedBy }) => (
-                        <InputField id={id} required={required} aria-describedby={describedBy} readOnly prefix="Points" align="end" defaultValue="10" />
+                        <InputField id={id} required={required} aria-describedby={describedBy} readOnly={!isNew} prefix="Points" align="end" defaultValue={isNew ? '' : '10'} />
                       )}
                     </Field>
                   </Stack>
@@ -345,7 +357,7 @@ export function LoyaltyV2({ onClose, versionSwitch }: LoyaltyV2Props) {
               <Stack gap={0} className="w-field-md shrink-0">
                 <Field label="Amount per Point" required>
                   {({ id, required, describedBy }) => (
-                    <InputField id={id} required={required} aria-describedby={describedBy} readOnly prefix="INR" align="end" defaultValue="10" />
+                    <InputField id={id} required={required} aria-describedby={describedBy} readOnly={!isNew} prefix="INR" align="end" defaultValue={isNew ? '' : '10'} />
                   )}
                 </Field>
               </Stack>
@@ -557,10 +569,19 @@ export function LoyaltyV2({ onClose, versionSwitch }: LoyaltyV2Props) {
           <Stack gap={0} className="sticky top-10 max-h-settings-sticky-max overflow-y-auto overscroll-contain">
           <Surface tone="sunken" radius="xl" pad={12}>
             <Stack gap={10}>
-              <Stack gap={2}>
-                <Text as="h2" size="subheading" weight="regular">Live preview</Text>
-                <Text size="body" tone="secondary">What a customer experiences at checkout.</Text>
-              </Stack>
+              {/*  Show / hide: the heading stays, the body collapses.  */}
+              <Inline gap={4} justify="between" align="start" className="flex-nowrap">
+                <Stack gap={2} className="min-w-0">
+                  <Text as="h2" size="subheading" weight="regular">Live preview</Text>
+                  <Text size="body" tone="secondary">What a customer experiences at checkout.</Text>
+                </Stack>
+                <Button type="button" emphasis="tertiary" size="sm" iconRight={previewIsOpen ? 'chevron-up' : 'chevron-down'} aria-expanded={previewIsOpen} onClick={() => setPreviewIsOpen(!previewIsOpen)}>
+                  {previewIsOpen ? 'Hide' : 'Show'}
+                </Button>
+              </Inline>
+
+              {previewIsOpen ? (
+              <>
 
               <Surface tone="default" radius="lg" border="divider" pad={0}>
                 <Stack gap={0}>
@@ -612,6 +633,8 @@ export function LoyaltyV2({ onClose, versionSwitch }: LoyaltyV2Props) {
                   </Stack>
                 </Surface>
               </Stack>
+              </>
+              ) : null}
             </Stack>
           </Surface>
           </Stack>

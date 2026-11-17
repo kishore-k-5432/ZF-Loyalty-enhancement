@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import type { IconName } from '@canon';
 import { Divider, Icon, Inline, Stack, StatusBadge, Surface, Text } from '@canon';
 
-/*  VERSION 3 — shared helpers for the three V3 screens.
+/*  VERSION 3 — shared helpers for the V3 screens.
 
     These are V3-ONLY copies of the private helpers in LoyaltyV2.tsx (InfoTip,
     OptionCard, RuleRow, CheckRow, fmt, period, minusPeriod), extended where V3
@@ -148,7 +148,23 @@ export function V3CheckRow({ check, children }: { check: V3Check; children?: Rea
   );
 }
 
-/* ── Campaigns ────────────────────────────────────────────────────────────── */
+/*  A label over a value — the scheduled-points preview's rows, without the
+    On/Off badge that V3RuleRow carries.  */
+export function V3PreviewRow({ icon, label, value }: { icon: IconName; label: string; value: string }) {
+  return (
+    <Inline gap={6} align="center" className="flex-nowrap px-6 py-5">
+      <Surface tone="default" radius="full" border="divider" pad={4} className="shrink-0">
+        <Icon name={icon} size="sm" tone="primary" />
+      </Surface>
+      <Stack gap={0} className="min-w-0 flex-1">
+        <Text size="overline" tone="tertiary">{label}</Text>
+        <Text size="body" weight="medium">{value}</Text>
+      </Stack>
+    </Inline>
+  );
+}
+
+/* ── Criteria rows (used by v3CriteriaBuilder) ─────────────────────────────── */
 
 export type CriteriaRow = {
   id: string;
@@ -161,39 +177,6 @@ export type CriteriaRow = {
   values: string[];
 };
 
-export type Campaign = {
-  id: string;
-  name: string;
-  description: string;
-  program: string;
-  trigger: 'recurring' | 'birthday' | 'anniversary';
-  frequency: 'daily' | 'weekly' | 'monthly';
-  weekdays: string[];
-  monthDay: string;
-  conditionsOn: boolean;
-  criteria: CriteriaRow[];
-  points: string;
-  skipPending: boolean;
-  start: string;
-  end: string;
-  noEnd: boolean;
-  active: boolean;
-};
-
-/*  What Screen 3 needs to know about the program it is linked to.  */
-export type ProgramInfo = {
-  name: string;
-  pendingOn: boolean;
-  /** Bounds for campaign dates, or null when the program has none. */
-  start: string | null;
-  end: string | null;
-  expiry: string;
-};
-
-export const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-export const PROGRAM_NAME = 'testing loyality';
-
 let seq = 0;
 export function newId(prefix: string): string {
   seq += 1;
@@ -204,85 +187,40 @@ export function blankCriteriaRow(): CriteriaRow {
   return { id: newId('c'), join: 'AND', field: '', comparator: '', value: '', values: [] };
 }
 
-export function blankCampaign(program: ProgramInfo): Campaign {
-  return {
-    id: '',
-    name: '',
-    description: '',
-    program: PROGRAM_NAME,
-    trigger: 'recurring',
-    frequency: 'monthly',
-    weekdays: ['Mon'],
-    monthDay: '1',
-    conditionsOn: false,
-    criteria: [blankCriteriaRow()],
-    points: '50',
-    skipPending: true,
-    //  Starts today, or on the program's start if that is still ahead.
-    start: program.start && program.start > todayIso() ? program.start : todayIso(),
-    end: program.end ?? '',
-    noEnd: !program.end,
-    active: true,
-  };
-}
+/* ── Schedules ────────────────────────────────────────────────────────────── */
 
-export const SEED_CAMPAIGNS: Campaign[] = [
-  {
-    id: 'seed-birthday', name: 'Birthday bonus', description: 'A treat on the customer\'s birthday.',
-    program: PROGRAM_NAME, trigger: 'birthday', frequency: 'monthly', weekdays: ['Mon'], monthDay: '1',
-    conditionsOn: false, criteria: [blankCriteriaRow()], points: '100', skipPending: true,
-    start: '2026-10-01', end: '2026-12-31', noEnd: false, active: true,
-  },
-  {
-    id: 'seed-monthly', name: 'Monthly regulars', description: 'Rewards Gold customers who keep coming back.',
-    program: PROGRAM_NAME, trigger: 'recurring', frequency: 'monthly', weekdays: ['Mon'], monthDay: '1',
-    conditionsOn: true,
-    criteria: [
-      { id: 'seed-c1', join: 'AND', field: 'group', comparator: 'in', value: '', values: ['Gold'] },
-      { id: 'seed-c2', join: 'AND', field: 'purchases', comparator: 'gt', value: '2', values: [] },
-    ],
-    points: '50', skipPending: true, start: '2026-10-01', end: '2026-12-31', noEnd: false, active: true,
-  },
-  {
-    id: 'seed-anniversary', name: 'Anniversary reward', description: 'Thanks members on the day they joined.',
-    program: PROGRAM_NAME, trigger: 'anniversary', frequency: 'monthly', weekdays: ['Mon'], monthDay: '1',
-    conditionsOn: false, criteria: [blankCriteriaRow()], points: '75', skipPending: true,
-    start: '2026-10-01', end: '2026-12-31', noEnd: false, active: false,
-  },
-];
-
-/*  "Monthly on day 1", "Weekly on Mon, Thu", "Customer's birthday".  */
-export function triggerLabel(c: Campaign): string {
-  if (c.trigger === 'birthday') return 'Customer\'s birthday';
-  if (c.trigger === 'anniversary') return 'Membership anniversary';
-  if (c.frequency === 'daily') return 'Daily';
-  if (c.frequency === 'weekly') return `Weekly on ${orderedDays(c.weekdays).join(', ') || '—'}`;
-  return `Monthly on day ${clampDay(c.monthDay)}`;
-}
+export const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export function orderedDays(days: string[]): string[] {
   return WEEKDAYS.filter((d) => days.includes(d));
 }
 
-/*  The next date a recurring campaign runs: the first matching day after
-    today, and never before the campaign starts. Birthday and anniversary
-    campaigns are checked every day, so they have no single next date.  */
-export function nextRun(c: Campaign, today = todayIso()): string {
-  if (c.trigger !== 'recurring') return 'Checked daily';
+export type TriggerValue = {
+  trigger: 'recurring' | 'birthday' | 'anniversary';
+  frequency: 'daily' | 'weekly' | 'monthly';
+  weekdays: string[];
+  monthDay: string;
+};
+
+/*  The next date a recurring trigger fires: the first matching day after
+    today, never before `start`, and "Ended" past `end`. Birthday and
+    anniversary triggers are checked every day, so they have no single date.  */
+export function nextRun(t: TriggerValue, start: string, end: string, today = todayIso()): string {
+  if (t.trigger !== 'recurring') return 'Checked daily';
   const tomorrow = shiftPeriod(today, 1, 'days');
-  let from = c.start && c.start > tomorrow ? c.start : tomorrow;
+  let from = start && start > tomorrow ? start : tomorrow;
   let date = '';
   for (let i = 0; i < 400 && !date; i += 1) {
     const d = parse(from);
     if (!d) return '—';
     const weekday = WEEKDAYS[(d.getDay() + 6) % 7];
-    const hit = c.frequency === 'daily'
-      || (c.frequency === 'weekly' && c.weekdays.includes(weekday))
-      || (c.frequency === 'monthly' && d.getDate() === clampDay(c.monthDay));
+    const hit = t.frequency === 'daily'
+      || (t.frequency === 'weekly' && t.weekdays.includes(weekday))
+      || (t.frequency === 'monthly' && d.getDate() === clampDay(t.monthDay));
     if (hit) date = from;
     else from = shiftPeriod(from, 1, 'days');
   }
   if (!date) return '—';
-  if (!c.noEnd && c.end && date > c.end) return 'Ended';
+  if (end && date > end) return 'Ended';
   return v3Fmt(date);
 }
