@@ -5,11 +5,11 @@ import {
 } from '@canon';
 import { V3SchedulePanel } from './V3SchedulePanel';
 import { V3UsageCard } from './V3UsageCard';
-import { V3spSlabRows } from './v3spSlabRows';
+import { V3spRateRanges } from './v3spRateRanges';
 import { V3OptionCard, V3PreviewRow, V3RuleRow, v3Fmt as fmt, v3Period as period } from './v3Shared';
 import type { ScheduledForm } from './v3ProgramModel';
 import {
-  inr, nextAward, purchasePeriod, scheduledErrors, summary, trySlab,
+  inr, nextAward, purchasePeriod, scheduledErrors, summary, tryRate,
 } from './v3spModel';
 
 /*  VERSION 3 — the body of a SCHEDULED POINTS program.
@@ -18,7 +18,7 @@ import {
       · Points Rewarding Rules
           When to award — Occasion (custom date / membership anniversary),
                           the date and how it repeats.
-          How to award  — points by purchase-value slab.
+          How to award  — a rate on purchase value, single or by range.
           Amount per Point.
       · Points Usage Configuration — Points per sale's own card (V3UsageCard),
         without Availability or the Redemption Window: minimum points and
@@ -38,7 +38,6 @@ export interface V3ScheduledBodyProps {
   onPreviewOpenChange: (open: boolean) => void;
 }
 
-const OCCASION_TIP = 'Birthday will be available once customers have a date of birth on their profile.';
 const AMOUNT_PER_POINT_TIP = 'Value of one point when redeemed.';
 
 const OCCASION_OPTIONS = [
@@ -49,6 +48,7 @@ const REPEAT_OPTIONS = [
   { value: 'month', label: 'Every month' },
   { value: 'quarter', label: 'Every quarter' },
   { value: 'year', label: 'Every year' },
+  { value: 'none', label: 'None' },
 ];
 
 /*  The ⓘ, as in Points per sale, but on the canon Tooltip so it shows on
@@ -63,8 +63,11 @@ function V3spInfoTip({ tip }: { tip: string }) {
   );
 }
 
+/*  "WHEN TO AWARD" / "HOW TO AWARD" — the overline style (11, Semi Bold,
+    upper case), so the two group headings read as section markers rather
+    than as one more label among the field labels below them.  */
 function Subheading({ children }: { children: string }) {
-  return <Text as="h4" size="body-lg" weight="medium">{children}</Text>;
+  return <Text as="h4" size="overline" tone="secondary">{children}</Text>;
 }
 
 export function V3ScheduledBody({ general, form: f, onChange: set, tried, previewOpen, onPreviewOpenChange }: V3ScheduledBodyProps) {
@@ -72,7 +75,6 @@ export function V3ScheduledBody({ general, form: f, onChange: set, tried, previe
   const [purchased, setPurchased] = useState('180000');
 
   const e = scheduledErrors(f, tried);
-  const apv = Number(f.amountPerPoint) || 0;
   const update = set;
 
   //  The preview's usage rows — the same two the card shows.
@@ -93,7 +95,8 @@ export function V3ScheduledBody({ general, form: f, onChange: set, tried, previe
     },
   ];
 
-  const tryResult = trySlab(f.slabs, Number(purchased) || 0, apv);
+  const tryResult = tryRate(f, Number(purchased) || 0);
+  const countedTip = `Purchases counted: ${purchasePeriod(f)}`;
 
   return (
     <Inline gap={16} align="start" className="flex-nowrap pe-10 pb-20">
@@ -109,6 +112,8 @@ export function V3ScheduledBody({ general, form: f, onChange: set, tried, previe
 
               <Stack gap={4}>
                 <Inline gap={8} align="start" wrap>
+                  {/*  Which purchases are counted sits in an ⓘ beside the last
+                       field of the row: Repeat, or Occasion when Repeat is hidden.  */}
                   <Inline gap={2} align="end" className="flex-nowrap">
                     <Stack gap={0} className="w-field-xs shrink-0">
                       <Field label="Occasion" required>
@@ -117,7 +122,7 @@ export function V3ScheduledBody({ general, form: f, onChange: set, tried, previe
                         )}
                       </Field>
                     </Stack>
-                    <V3spInfoTip tip={OCCASION_TIP} />
+                    {f.occasion === 'anniversary' ? <V3spInfoTip tip={countedTip} /> : null}
                   </Inline>
 
                   {f.occasion === 'custom' ? (
@@ -129,13 +134,16 @@ export function V3ScheduledBody({ general, form: f, onChange: set, tried, previe
                           )}
                         </Field>
                       </Stack>
-                      <Stack gap={0} className="w-field-sm shrink-0">
-                        <Field label="Repeat">
-                          {({ id, describedBy }) => (
-                            <Select id={id} ariaDescribedBy={describedBy} value={f.repeat} onChange={(v) => update({ repeat: v as ScheduledForm['repeat'] })} options={REPEAT_OPTIONS} />
-                          )}
-                        </Field>
-                      </Stack>
+                      <Inline gap={2} align="end" className="flex-nowrap">
+                        <Stack gap={0} className="w-field-sm shrink-0">
+                          <Field label="Repeat">
+                            {({ id, describedBy }) => (
+                              <Select id={id} ariaDescribedBy={describedBy} value={f.repeat} onChange={(v) => update({ repeat: v as ScheduledForm['repeat'] })} options={REPEAT_OPTIONS} />
+                            )}
+                          </Field>
+                        </Stack>
+                        <V3spInfoTip tip={countedTip} />
+                      </Inline>
                     </>
                   ) : null}
                 </Inline>
@@ -151,14 +159,18 @@ export function V3ScheduledBody({ general, form: f, onChange: set, tried, previe
               <Subheading>How to award</Subheading>
 
                 <Stack gap={8}>
-                  <Inline gap={3} align="center" className="flex-nowrap">
-                    <Icon name="refresh" size="sm" tone="muted" />
-                    <Text size="body" tone="secondary">
-                      Purchases counted: <Text as="span" size="body" weight="medium">{purchasePeriod(f)}</Text>
-                    </Text>
-                  </Inline>
+                  <V3spRateRanges
+                    rateType={f.rateType}
+                    singleForEvery={f.singleForEvery}
+                    singlePoints={f.singlePoints}
+                    ranges={f.ranges}
+                    onChange={update}
+                    errors={e}
+                  />
 
-                  <V3spSlabRows slabs={f.slabs} onChange={(slabs) => update({ slabs })} errors={e.slabs} />
+                  <Text size="body-sm" tone="secondary">
+                    The customer&apos;s total purchase value for the period falls into one range, and that range&apos;s rate applies to the whole total. Totals below the first range earn nothing. Value is net of returns.
+                  </Text>
                 </Stack>
             </Stack>
 

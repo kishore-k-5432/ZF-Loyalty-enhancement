@@ -6,7 +6,7 @@ import {
 } from '@canon';
 import { COMMERCE_MARK } from '../data/books-marks';
 import { SETTINGS_SECTIONS } from '../data/settings';
-import { PROGRAM_TYPE_LABEL } from './v3/v3ProgramModel';
+import { PROGRAM_TYPE_LABEL, blankScheduled } from './v3/v3ProgramModel';
 import type { ProgramRecord, ProgramType, SaleForm, ScheduledForm } from './v3/v3ProgramModel';
 import { V3SaleBody } from './v3/V3SaleBody';
 import { V3ScheduledBody } from './v3/V3ScheduledBody';
@@ -59,7 +59,9 @@ export function LoyaltyV2({
   initial, isNew, versionSwitch, onTypeChange, onSave, onCancel, onNavigate,
   toast, onDismissToast, previewOpen, onPreviewOpenChange,
 }: LoyaltyV2Props) {
-  const [draft, setDraft] = useState<ProgramRecord>(initial);
+  //  Missing scheduled fields take their defaults, so a record held from an
+  //  earlier shape of the model (a long-lived tab across an edit) still opens.
+  const [draft, setDraft] = useState<ProgramRecord>(() => ({ ...initial, scheduled: { ...blankScheduled(), ...initial.scheduled } }));
   const [tried, setTried] = useState(false);
   //  Bumped when the type is switched, so the body remounts and its right rail
   //  (the checkout simulator) starts fresh.

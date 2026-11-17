@@ -1,15 +1,14 @@
 import { shiftPeriod, todayIso, v3Fmt as fmt } from './v3Shared';
 import { dateBounds } from './v3ProgramModel';
-import type { RepeatEvery, ScheduledForm, Slab } from './v3ProgramModel';
+import type { RateRange, RepeatEvery, ScheduledForm } from './v3ProgramModel';
 
 /*  VERSION 3 — SCHEDULED POINTS only (`v3sp`). The copy, dates and checks
     behind V3ScheduledBody. Nothing in Points per sale reads this file.  */
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const STEP: Record<RepeatEvery, number> = { month: 1, quarter: 3, year: 12 };
-const EVERY: Record<RepeatEvery, string> = { month: 'Every month', quarter: 'Every quarter', year: 'Every year' };
+const STEP: Record<Exclude<RepeatEvery, 'none'>, number> = { month: 1, quarter: 3, year: 12 };
+const EVERY: Record<Exclude<RepeatEvery, 'none'>, string> = { month: 'Every month', quarter: 'Every quarter', year: 'Every year' };
 
-export const SLAB_ORDER_ERROR = 'Each slab must be higher than the one above it.';
 
 /*  Indian digit grouping — 1,80,000.  */
 export function inr(n: number): string {
@@ -30,6 +29,7 @@ export function dayMonth(iso: string): string {
 /*  The helper line under "When to award".  */
 export function whenHelper(f: ScheduledForm): string {
   if (f.occasion === 'anniversary') return 'Awarded once a year on each customer\'s loyalty join date.';
+  if (f.repeat === 'none') return `Awarded once on ${fmt(f.awardDate)}.`;
   if (f.repeat === 'year') return `Awarded every year on ${dayMonth(f.awardDate)}.`;
   return `Awarded ${EVERY[f.repeat].toLowerCase()} from ${fmt(f.awardDate)}.`;
 }
@@ -38,31 +38,50 @@ export function whenHelper(f: ScheduledForm): string {
 export function purchasePeriod(f: ScheduledForm): string {
   if (f.occasion === 'anniversary') return 'the customer\'s last membership year (12 months before their anniversary)';
   if (f.repeat === 'month') return 'the previous month';
-  if (f.repeat === 'year') return 'the previous 12 months';
+  //  A one-off award counts the 12 months before it, as a yearly one does.
+  if (f.repeat === 'year' || f.repeat === 'none') return 'the previous 12 months';
   const p = parts(f.awardDate);
   if (!p) return 'the previous quarter';
   const first = MONTHS[(p[1] + 9) % 12]; const last = MONTHS[(p[1] + 11) % 12];
   return `the previous quarter (${first}–${last} for the ${dayMonth(f.awardDate)} award)`;
 }
 
-/*  Slabs that have both numbers, as "INR 75,000+ → 100, …".  */
-export function slabList(slabs: Slab[]): string {
-  return slabs
-    .filter((s) => Number(s.from) > 0 && Number(s.points) > 0)
-    .map((s) => `INR ${inr(Number(s.from))}+ → ${inr(Number(s.points))}`)
-    .join(', ');
+const n = (v: string) => Number(v) || 0;
+const pointWord = (p: number) => (p === 1 ? 'point' : 'points');
+
+/*  "INR 75,000–1,50,000" / "INR 3,00,000 and above".  */
+export function rangeLabel(r: RateRange, sep = '–'): string {
+  return r.to.trim() === '' ? `INR ${inr(n(r.from))} and above` : `INR ${inr(n(r.from))}${sep}${inr(n(r.to))}`;
+}
+
+/*  "INR 75,000–1,50,000 at 1 point per INR 1,000, INR 1,50,000–3,00,000 at 2, …"
+    — later ranges drop "per INR X" while they share the first one's step.  */
+function rateList(ranges: RateRange[]): string {
+  const usable = ranges.filter((r) => n(r.from) > 0 && n(r.forEvery) > 0 && n(r.points) > 0);
+  if (usable.length === 0) return 'no ranges set';
+  const step = usable[0].forEvery;
+  return usable.map((r, i) => {
+    const rate = i === 0 ? `${inr(n(r.points))} ${pointWord(n(r.points))} per INR ${inr(n(r.forEvery))}`
+      : r.forEvery === step ? inr(n(r.points)) : `${inr(n(r.points))} per INR ${inr(n(r.forEvery))}`;
+    return `${rangeLabel(r)} at ${rate}`;
+  }).join(', ');
 }
 
 export function summary(f: ScheduledForm): string {
-  const list = slabList(f.slabs) || 'no slabs set';
+  const single = `${inr(n(f.singlePoints))} ${pointWord(n(f.singlePoints))} for every INR ${inr(n(f.singleForEvery))}`;
 
   if (f.occasion === 'anniversary') {
-    return `On each customer's membership anniversary, they get points based on their last membership year's purchases: ${list}.`;
+    return f.rateType === 'single'
+      ? `On each customer's membership anniversary, they get ${single} of their last membership year's purchases.`
+      : `On each customer's membership anniversary, they get points on their last membership year's purchases: ${rateList(f.ranges)}.`;
   }
 
-  const lead = f.repeat === 'year' ? `Every year on ${dayMonth(f.awardDate)}` : `${EVERY[f.repeat]} from ${fmt(f.awardDate)}`;
+  const lead = f.repeat === 'none' ? `On ${fmt(f.awardDate)}`
+    : f.repeat === 'year' ? `Every year on ${dayMonth(f.awardDate)}` : `${EVERY[f.repeat]} from ${fmt(f.awardDate)}`;
   const last = f.repeat === 'month' ? 'last month\'s' : f.repeat === 'quarter' ? 'last quarter\'s' : 'the last 12 months\'';
-  return `${lead}, customers get points based on ${last} purchases: ${list}.`;
+  return f.rateType === 'single'
+    ? `${lead}, customers get ${single} of ${last} purchases.`
+    : `${lead}, customers get points on ${last} purchases: ${rateList(f.ranges)}.`;
 }
 
 /*  The next award on or after today, within the program dates.  */
@@ -72,14 +91,16 @@ export function nextAward(f: ScheduledForm, today = todayIso()): string {
   const { end } = dateBounds(f);
 
   let k = 0; let next = f.awardDate;
-  while (next < today && k < 1200) { k += STEP[f.repeat]; next = shiftPeriod(f.awardDate, k, 'months'); }
+  if (f.repeat === 'none') return f.awardDate >= today ? fmt(f.awardDate) : `Awarded on ${fmt(f.awardDate)}`;
+  const step = STEP[f.repeat];
+  while (next < today && k < 1200) { k += step; next = shiftPeriod(f.awardDate, k, 'months'); }
   if (end && next > end) return `No more awards — the program ends ${fmt(end)}`;
   return fmt(next);
 }
 
 /* ── Validation ────────────────────────────────────────────────────────────── */
 
-export type SlabError = { from?: string; points?: string };
+export type RangeError = { from?: string; to?: string; forEvery?: string; points?: string };
 
 export type ScheduledErrors = {
   /** Award date missing (custom date). */
@@ -87,14 +108,20 @@ export type ScheduledErrors = {
   /** Award date outside the program dates. */
   dateRange?: string;
   amount?: string;
-  slabs: SlabError[];
+  /** Single Criteria. */
+  singleForEvery?: string;
+  singlePoints?: string;
+  /** Multiple Criteria, one per row. */
+  ranges: RangeError[];
 };
 
 /*  `tried`: Save was attempted, so empty required fields are errors too. The
-    rest — slab order, the date range — show as soon as they are true.  */
+    rest — From < To, overlaps, an open To above the last row, the date
+    range — show as soon as they are true.  */
 export function scheduledErrors(f: ScheduledForm, tried = true): ScheduledErrors {
-  const e: ScheduledErrors = { slabs: [] };
+  const e: ScheduledErrors = { ranges: [] };
   const custom = f.occasion === 'custom';
+  const positive = (v: string, msg: string) => ((v.trim() !== '' || tried) && !(n(v) > 0) ? msg : undefined);
 
   if (custom && !f.awardDate && tried) e.date = 'Select the award date.';
   const { start, end } = dateBounds(f);
@@ -102,41 +129,61 @@ export function scheduledErrors(f: ScheduledForm, tried = true): ScheduledErrors
     e.dateRange = `Award date must be within the program dates (${fmt(start)} – ${fmt(end)}).`;
   }
 
-  {
-    e.slabs = f.slabs.map((s, i) => {
-      const se: SlabError = {};
-      const prev = i > 0 ? Number(f.slabs[i - 1].from) : 0;
-      if (s.from.trim() === '') { if (tried) se.from = 'Enter a purchase value.'; }
-      else if (i > 0 && f.slabs[i - 1].from.trim() !== '' && Number(s.from) <= prev) se.from = SLAB_ORDER_ERROR;
-      if (s.points.trim() !== '' || tried) { if (!(Number(s.points) > 0)) se.points = 'Points must be greater than 0.'; }
-      return se;
+  if (f.rateType === 'single') {
+    e.singleForEvery = positive(f.singleForEvery, 'Enter the purchase value per rate step.');
+    e.singlePoints = positive(f.singlePoints, 'Points must be greater than 0.');
+  } else {
+    const last = f.ranges.length - 1;
+    e.ranges = f.ranges.map((r, i) => {
+      const re: RangeError = {};
+      const prev = i > 0 ? f.ranges[i - 1] : null;
+      if (r.from.trim() === '') { if (tried) re.from = 'Enter where this range starts.'; }
+      else if (prev && prev.to.trim() !== '' && n(r.from) < n(prev.to)) re.from = `Ranges can't overlap. Start this range at INR ${inr(n(prev.to))} or above.`;
+      if (r.to.trim() === '') { if (i !== last) re.to = 'Only the last range can be left open ("and above").'; }
+      else if (r.from.trim() !== '' && n(r.to) <= n(r.from)) re.to = 'The To value must be more than the From value.';
+      re.forEvery = positive(r.forEvery, 'Enter the purchase value per rate step.');
+      re.points = positive(r.points, 'Points must be greater than 0.');
+      return re;
     });
   }
 
-  if (!(Number(f.amountPerPoint) > 0) && tried) e.amount = 'Enter the value of one point.';
-
+  if (!(n(f.amountPerPoint) > 0) && tried) e.amount = 'Enter the value of one point.';
   return e;
 }
 
 export function hasErrors(e: ScheduledErrors): boolean {
-  return Boolean(e.date || e.dateRange || e.amount)
-    || e.slabs.some((s) => s.from || s.points);
+  return Boolean(e.date || e.dateRange || e.amount || e.singleForEvery || e.singlePoints)
+    || e.ranges.some((r) => r.from || r.to || r.forEvery || r.points);
 }
 
-/*  The checkout-style "Try it": which slab a purchase reaches.  */
-export function trySlab(slabs: Slab[], purchased: number, amountPerPoint: number): string {
-  const valid = slabs
-    .map((s) => ({ from: Number(s.from), points: Number(s.points) }))
-    .filter((s) => s.from > 0 && s.points > 0);
-  if (valid.length === 0) return 'Add a slab to see what a customer gets.';
-  let hit = -1;
-  valid.forEach((s, i) => { if (purchased >= s.from && (hit < 0 || s.from >= valid[hit].from)) hit = i; });
-  if (hit < 0) {
-    const first = Math.min(...valid.map((s) => s.from));
-    return `Below the first slab, so no points. Needs INR ${inr(first - purchased)} more.`;
+/*  The "Try it": points = floor(total ÷ For Every) × points, at the rate of
+    the one range the total falls in (From inclusive, To exclusive).  */
+export function tryRate(f: ScheduledForm, purchased: number): string {
+  const apv = n(f.amountPerPoint);
+  const earn = (forEvery: number, pts: number) => Math.floor(purchased / forEvery) * pts;
+
+  if (f.rateType === 'single') {
+    const fe = n(f.singleForEvery); const p = n(f.singlePoints);
+    if (!(fe > 0 && p > 0)) return 'Set the rate to see what a customer gets.';
+    const got = earn(fe, p);
+    return `For every INR ${inr(fe)} → ${inr(p)} ${pointWord(p)} → ${inr(got)} ${pointWord(got)} (INR ${inr(got * apv)}).`;
   }
-  const s = valid[hit];
-  const higher = valid.filter((x) => x.from > s.from).sort((a, b) => a.from - b.from)[0];
-  const more = higher ? ` INR ${inr(higher.from - purchased)} more would have earned ${inr(higher.points)}.` : '';
-  return `Reached the INR ${inr(s.from)}+ slab → ${inr(s.points)} points (INR ${inr(s.points * amountPerPoint)}).${more}`;
+
+  const usable = f.ranges
+    .filter((r) => n(r.from) > 0 && n(r.forEvery) > 0 && n(r.points) > 0)
+    .sort((a, b) => n(a.from) - n(b.from));
+  if (usable.length === 0) return 'Add a range to see what a customer gets.';
+
+  const hit = usable.find((r) => purchased >= n(r.from) && (r.to.trim() === '' || purchased < n(r.to)));
+  const higher = usable.find((r) => n(r.from) > purchased);
+  const moveTo = higher
+    ? ` INR ${inr(n(higher.from) - purchased)} more would move to ${inr(n(higher.points))} ${pointWord(n(higher.points))} per INR ${inr(n(higher.forEvery))}.`
+    : '';
+
+  if (!hit) {
+    if (purchased < n(usable[0].from)) return `Below the first range, so no points. Needs INR ${inr(n(usable[0].from) - purchased)} more.`;
+    return `Between ranges, so no points.${moveTo}`;
+  }
+  const got = earn(n(hit.forEvery), n(hit.points));
+  return `Falls in the ${rangeLabel(hit, ' – ')} range → ${inr(got)} ${pointWord(got)} (INR ${inr(got * apv)}).${moveTo}`;
 }

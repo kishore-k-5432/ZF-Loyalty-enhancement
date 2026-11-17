@@ -5,7 +5,7 @@ import { clampDay, todayIso, toIso, v3Period as period } from './v3Shared';
     A loyalty program has a TYPE, chosen at creation and fixed afterwards:
       · Points per sale   — earns on a bill (the program V1/V2 configure).
       · Scheduled points  — awards on an occasion (a custom date, or each
-        customer's membership anniversary), by purchase-value slab.
+        customer's membership anniversary), at a rate on purchase value.
         A standalone program: its own point value, minimum points and expiry
         (Points per sale's usage card without Availability or the window).  */
 
@@ -62,9 +62,14 @@ export type SaleForm = ScheduleDates & UsageFields & {
     point value, and the usage fields — of which only minimum points and
     expiry are shown; pending and the redemption window stay off.  */
 export type Occasion = 'anniversary' | 'custom';
-export type RepeatEvery = 'month' | 'quarter' | 'year';
-/*  One purchase-value slab: "INR <from> and above → <points>".  */
-export type Slab = { id: string; from: string; points: string };
+/*  'none': awarded once, on the date.  */
+export type RepeatEvery = 'month' | 'quarter' | 'year' | 'none';
+/*  Points on purchase value, drawn like Points per sale's rewarding rules.
+    Single: one rate on any total. Multiple: the total falls into one range
+    and that range's rate applies to all of it. An empty `to` on the last
+    range means "and above".  */
+export type RateType = 'single' | 'multiple';
+export type RateRange = { id: string; from: string; to: string; forEvery: string; points: string };
 
 export type ScheduledForm = ScheduleDates & UsageFields & {
   occasion: Occasion;
@@ -72,8 +77,12 @@ export type ScheduledForm = ScheduleDates & UsageFields & {
   awardDate: string;
   /** Custom date only. */
   repeat: RepeatEvery;
-  /** Based on purchase value. */
-  slabs: Slab[];
+  rateType: RateType;
+  /** Single Criteria. */
+  singleForEvery: string;
+  singlePoints: string;
+  /** Multiple Criteria. */
+  ranges: RateRange[];
   amountPerPoint: string;
 };
 
@@ -166,16 +175,16 @@ export function nextQuarterStart(today = todayIso()): string {
   return toIso(new Date(y, Math.floor((m - 1) / 3) * 3 + 3, 1));
 }
 
-export function seedSlabs(): Slab[] {
+export function seedRanges(): RateRange[] {
   return [
-    { id: 'slab-1', from: '75000', points: '100' },
-    { id: 'slab-2', from: '150000', points: '250' },
-    { id: 'slab-3', from: '300000', points: '500' },
+    { id: 'range-1', from: '75000', to: '150000', forEvery: '1000', points: '1' },
+    { id: 'range-2', from: '150000', to: '300000', forEvery: '1000', points: '2' },
+    { id: 'range-3', from: '300000', to: '', forEvery: '1000', points: '3' },
   ];
 }
 
 /*  A new Scheduled points program, with the spec's defaults: a custom date on
-    the first day of next quarter, every quarter, the seed slabs, INR 1 a
+    the first day of next quarter, every quarter, the seed ranges, INR 1 a
     point. Usage starts off, as in a new Points per sale program.  */
 export function blankScheduled(): ScheduledForm {
   const date = nextQuarterStart();
@@ -185,7 +194,10 @@ export function blankScheduled(): ScheduledForm {
     occasion: 'custom',
     awardDate: date,
     repeat: 'quarter',
-    slabs: seedSlabs(),
+    rateType: 'multiple',
+    singleForEvery: '1000',
+    singlePoints: '1',
+    ranges: seedRanges(),
     amountPerPoint: '1',
   };
 }
