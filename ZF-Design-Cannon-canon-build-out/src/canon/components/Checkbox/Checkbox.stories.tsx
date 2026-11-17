@@ -209,3 +209,28 @@ export const Glyphs: Story = {
     </Inline>
   ),
 };
+
+/**
+ * WITH AN INFO TIP — `info` adds an ⓘ after the label; hovering it shows the
+ * explainer in a Tooltip. Clicking the ⓘ does not toggle the box. Check it on
+ * a disabled checkbox too: the ⓘ keeps its tone, because it often explains
+ * why the option is off.
+ */
+export const WithInfo: Story = {
+  render: () => {
+    const [a, setA] = useState<CheckboxSelection>('unchecked');
+    return (
+      <Stack gap={6}>
+        <Checkbox
+          label="Minimum Points Required for Redemption"
+          description="Customers can redeem loyalty points only if they meet the entered minimum point."
+          info="Customers can redeem only once their balance reaches this many points."
+          selection={a}
+          onSelectionChange={setA}
+        />
+        <Checkbox label="Points Expiration" info="Expired points are removed and can't be carried over." disabled />
+        <Text size="body-sm" tone="secondary">Hover the ⓘ — the tip follows the pointer.</Text>
+      </Stack>
+    );
+  },
+};

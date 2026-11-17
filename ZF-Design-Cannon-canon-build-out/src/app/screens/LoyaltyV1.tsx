@@ -2,8 +2,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { IconName } from '@canon';
 import {
-  Banner, Button, Checkbox, DatePicker, Divider, Field, Icon, Inline, InputField,
-  RadioGroup, Select, SettingsShell, Stack, StatusBadge, Surface, Text, Textarea, Toggle,
+  Banner, Button, Checkbox, DatePicker, Divider, Field, Icon, Inline, InputField, RadioGroup, Select, SettingsShell, Stack, StatusBadge, Surface, Text, Textarea, Toggle, Tooltip,
 } from '@canon';
 import { COMMERCE_MARK } from '../data/books-marks';
 import { SETTINGS_SECTIONS } from '../data/settings';
@@ -74,12 +73,20 @@ const inRange = (d: string, a: string, b: string) => (!a || d >= a) && (!b || d 
 
 /*  The ⓘ beside a field. A native `title` gives the hover tooltip; the icon's
     `label` is what a screen reader announces.  */
+/*  The ⓘ on the usage options (Checkbox `info`): a short worked example —
+    the description under each option already says what it is.  */
+const MIN_POINTS_INFO = 'Example: with a minimum of 100, a customer with 80 points can\'t redeem yet. Once they reach 100, they can.';
+const WINDOW_INFO = 'Example: with a window of 1–31 Dec, a customer\'s 500 points can be redeemed only in December. Points left after 31 Dec are held, not expired.';
+const EXPIRY_INFO = 'Example: with expiry on 31 Dec, a customer\'s unused 500 points are removed on 1 Jan and can\'t move to another program.';
+
 function InfoTip({ tip }: { tip: string }) {
   return (
-    <Inline gap={0} align="center" className="h-control">
-      <Text as="span" title={tip} className="cursor-help">
-        <Icon name="info" size="md" tone="subtle" label={tip} />
-      </Text>
+    <Inline gap={0} align="center" className="h-control shrink-0">
+      {/*  The canon Tooltip, not `title`: a title tip waits on the browser's
+           delay and often does not show at all.  */}
+      <Tooltip content={tip} className="inline-flex cursor-help">
+        <Icon name="info" size="md" tone="subtle" />
+      </Tooltip>
     </Inline>
   );
 }
@@ -374,6 +381,7 @@ export function LoyaltyV1({ onClose, versionSwitch, isNew = false, previewOpen, 
                 <Checkbox
                   label="Minimum Points Required for Redemption"
                   description="Customers can redeem loyalty points only if they meet the entered minimum point."
+                  info={MIN_POINTS_INFO}
                   selection={minPoints ? 'checked' : 'unchecked'}
                   onSelectionChange={(next) => setMinPoints(next === 'checked')}
                 />
@@ -404,6 +412,7 @@ export function LoyaltyV1({ onClose, versionSwitch, isNew = false, previewOpen, 
                 <Checkbox
                   label="Redemption Window"
                   description="When customers can start and stop redeeming points."
+                  info={WINDOW_INFO}
                   selection={redemptionWindow ? 'checked' : 'unchecked'}
                   onSelectionChange={(next) => setRedemptionWindow(next === 'checked')}
                 />
@@ -441,6 +450,7 @@ export function LoyaltyV1({ onClose, versionSwitch, isNew = false, previewOpen, 
               <Checkbox
                 label="Points Expiration"
                 description="Enable points expiry that controls how long individual points stay valid in a customer's wallet"
+                info={EXPIRY_INFO}
                 selection={pointsExpiration ? 'checked' : 'unchecked'}
                 onSelectionChange={(next) => setPointsExpiration(next === 'checked')}
               />

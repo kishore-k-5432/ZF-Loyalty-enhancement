@@ -1,5 +1,5 @@
 import {
-  Banner, Checkbox, DatePicker, Divider, Field, Icon, Inline, InputField, RadioGroup, Select, Stack, Text, Tooltip,
+  Banner, Checkbox, DatePicker, Divider, Field, Inline, InputField, RadioGroup, Select, Stack, Text, Tooltip,
 } from '@canon';
 import { V3OptionCard, clampDay, toDays, v3Fmt as fmt } from './v3Shared';
 import type { UsageFields } from './v3ProgramModel';
@@ -38,7 +38,12 @@ const frequencyOptions = [
     only one can be on. The one that is off is disabled, and says why on hover.  */
 const EXPIRY_LOCKED_TIP = 'You can\'t enable Points Expiration while Redemption Window is enabled. Disable Redemption Window to use this option.';
 const WINDOW_LOCKED_TIP = 'You can\'t enable Redemption Window while Points Expiration is enabled. Disable Points Expiration to use this option.';
-const PENDING_TIP = 'Use this to protect against returns. Points from a returned bill are cancelled while still pending, so nothing needs to be clawed back.';
+/*  The ⓘ on the four options (Checkbox `info`): a short worked example —
+    the description under each option already says what it is.  */
+const PENDING_INFO = 'Example: a customer earns 100 points on 1 Oct. With a 15-day pending period, they can redeem them from 16 Oct.';
+const MIN_POINTS_INFO = 'Example: with a minimum of 100, a customer with 80 points can\'t redeem yet. Once they reach 100, they can.';
+const WINDOW_INFO = 'Example: with a window of 1–31 Dec, a customer\'s 500 points can be redeemed only in December. Points left after 31 Dec are held, not expired.';
+const EXPIRY_INFO = 'Example: with expiry on 31 Dec, a customer\'s unused 500 points are removed on 1 Jan and can\'t move to another program.';
 
 export function V3UsageCard({ form: f, onChange: set, variant }: V3UsageCardProps) {
   /*  The one conflict left: a fixed expiry that falls BEFORE redemption opens
@@ -70,29 +75,13 @@ export function V3UsageCard({ form: f, onChange: set, variant }: V3UsageCardProp
               <Text as="h4" size="body-lg" weight="medium">Availability</Text>
 
               <Stack gap={8}>
-                {/*  The ⓘ sits beside the label, so the description is set
-                     under it at the checkbox's own indent rather than inside
-                     the Checkbox (which would push the icon past it).  */}
-                <Stack gap={2}>
-                  <Inline gap={2} align="start" className="flex-nowrap">
-                    <Checkbox
-                      label="Points Pending Period"
-                      selection={f.pendingOn ? 'checked' : 'unchecked'}
-                      onSelectionChange={(next) => set({ pendingOn: next === 'checked' })}
-                    />
-                    <Inline gap={0} align="center" className="h-10 shrink-0">
-                      <Text as="span" title={PENDING_TIP} className="cursor-help">
-                        <Icon name="info" size="md" tone="subtle" label={PENDING_TIP} />
-                      </Text>
-                    </Inline>
-                  </Inline>
-                  <Inline gap={4} className="flex-nowrap">
-                    <Stack gap={0} className="w-checkbox shrink-0" />
-                    <Text size="body-sm" tone="secondary">
-                      Newly earned points stay pending before customers can redeem them. Pending points are cancelled if the order is returned.
-                    </Text>
-                  </Inline>
-                </Stack>
+                <Checkbox
+                  label="Points Pending Period"
+                  description="Newly earned points stay pending before customers can redeem them. Pending points are cancelled if the order is returned."
+                  info={PENDING_INFO}
+                  selection={f.pendingOn ? 'checked' : 'unchecked'}
+                  onSelectionChange={(next) => set({ pendingOn: next === 'checked' })}
+                />
 
                 {f.pendingOn ? (
                   <Stack gap={0} className="ps-10 max-w-settings-option-panel">
@@ -192,6 +181,7 @@ export function V3UsageCard({ form: f, onChange: set, variant }: V3UsageCardProp
                 <Checkbox
                   label="Minimum Points Required for Redemption"
                   description="Customers can redeem loyalty points only if they meet the entered minimum point."
+                  info={MIN_POINTS_INFO}
                   selection={f.minPoints ? 'checked' : 'unchecked'}
                   onSelectionChange={(next) => set({ minPoints: next === 'checked' })}
                 />
@@ -224,6 +214,7 @@ export function V3UsageCard({ form: f, onChange: set, variant }: V3UsageCardProp
                   <Checkbox
                     label="Redemption Window"
                     description="When customers can start and stop redeeming points."
+                    info={WINDOW_INFO}
                     disabled={f.pointsExpiration}
                     selection={f.redemptionStartOn ? 'checked' : 'unchecked'}
                     onSelectionChange={(next) => set({ redemptionStartOn: next === 'checked' })}
@@ -269,6 +260,7 @@ export function V3UsageCard({ form: f, onChange: set, variant }: V3UsageCardProp
                   <Checkbox
                     label="Points Expiration"
                     description="Enable points expiry that controls how long individual points stay valid in a customer's wallet"
+                    info={EXPIRY_INFO}
                     disabled={f.redemptionStartOn}
                     selection={f.pointsExpiration ? 'checked' : 'unchecked'}
                     onSelectionChange={(next) => set({ pointsExpiration: next === 'checked' })}

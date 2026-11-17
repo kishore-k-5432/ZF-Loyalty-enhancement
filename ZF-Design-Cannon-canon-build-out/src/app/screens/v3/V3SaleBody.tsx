@@ -110,7 +110,9 @@ export function V3SaleBody({ general, form: f, onChange: set, editable, previewO
 
   //  Only Multiple Criteria has ranges; Single (or none chosen yet) is one rate.
   const multiple = f.loyaltyType === 'multiple';
-  const rateWidth = multiple ? 'w-field-xs' : 'w-field-sm';
+  //  165 in both modes: at 200 the Multiple Criteria row ran past the card at
+  //  1440 and the Points Earned ⓘ sat under the right rail, unhoverable.
+  const rateWidth = 'w-field-sm';
 
   return (
       <Inline gap={16} align="start" className="flex-nowrap pe-10 pb-20">
@@ -137,7 +139,7 @@ export function V3SaleBody({ general, form: f, onChange: set, editable, previewO
             {/*  Single Criteria: one rate, "for every INR X, earn Y points".
                  Multiple Criteria adds the order value range and more ranges.  */}
             <Stack gap={6}>
-              <Inline gap={16} align="end" className="flex-nowrap">
+              <Inline gap={8} align="end" className="flex-nowrap">
                 {multiple ? (
                 <Stack gap={0} className="w-field-md shrink-0">
                   <Field label="Order Value Range" required>

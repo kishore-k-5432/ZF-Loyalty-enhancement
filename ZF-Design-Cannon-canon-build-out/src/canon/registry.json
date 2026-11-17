@@ -353,6 +353,7 @@
         "onSelectionChange": "(next) => void — a mixed parent resolves, never cycles back to mixed",
         "label": "string — omit for the bare box. The label is the hit area and the only thing that makes 2.5.8 pass",
         "description": "string",
+        "info": "string — an ⓘ after the label with this text in a Tooltip on hover; clicking it does not toggle. Added 2026-11-17 for the loyalty usage options",
         "error": "boolean — ignored when disabled",
         "errorMessage": "string",
         "disabled": "boolean",

@@ -266,3 +266,27 @@ export function blankRecord(type: ProgramType): ProgramRecord {
     sale: { ...BLANK_SALE }, scheduled: blankScheduled(),
   };
 }
+
+/*  The Preferences tab — org-wide loyalty settings, as in the live product.  */
+export type LoyaltyPrefs = {
+  enabled: boolean;
+  allowAdjust: boolean;
+  roundOff: boolean;
+  deductOnReturn: boolean;
+  restrictOnRedeem: boolean;
+  excludeTax: boolean;
+  retainOnSwitch: boolean;
+  /** With retainOnSwitch: keep the points as they are, or re-apply the new program's rules. */
+  retainMode: 'as-is' | 'new-rules';
+};
+
+export const DEFAULT_PREFS: LoyaltyPrefs = {
+  enabled: true,
+  allowAdjust: false,
+  roundOff: false,
+  deductOnReturn: false,
+  restrictOnRedeem: true,
+  excludeTax: false,
+  retainOnSwitch: false,
+  retainMode: 'as-is',
+};

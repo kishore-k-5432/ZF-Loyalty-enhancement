@@ -5,8 +5,8 @@ import { LoyaltyV1 } from './screens/LoyaltyV1';
 import { LoyaltyV2 } from './screens/LoyaltyV2';
 import { V3ProgramList } from './screens/v3/V3ProgramList';
 import type { V3Tab } from './screens/v3/V3ProgramList';
-import { SEED_PROGRAMS, SEED_TARGET_ID, blankRecord, cloneRecord } from './screens/v3/v3ProgramModel';
-import type { ProgramRecord, ProgramType } from './screens/v3/v3ProgramModel';
+import { DEFAULT_PREFS, SEED_PROGRAMS, SEED_TARGET_ID, blankRecord, cloneRecord } from './screens/v3/v3ProgramModel';
+import type { LoyaltyPrefs, ProgramRecord, ProgramType } from './screens/v3/v3ProgramModel';
 import { newId } from './screens/v3/v3Shared';
 
 /**
@@ -124,6 +124,8 @@ export function App() {
     : { kind: 'list' }));
   const [programs, setPrograms] = useState<ProgramRecord[]>(SEED_PROGRAMS);
   const [tab, setTab] = useState<V3Tab>('programs');
+  //  The Preferences tab, kept here so it survives opening a program.
+  const [prefs, setPrefs] = useState<LoyaltyPrefs>(DEFAULT_PREFS);
   const [toast, setToast] = useState('');
   //  Live preview show / hide — one setting for every version and type.
   const [previewOpen, setPreviewOpen] = useState(true);
@@ -227,6 +229,8 @@ export function App() {
         onDismissToast={() => setToast('')}
         onNavigate={onNavigate}
         versionSwitch={undefined}
+        prefs={prefs}
+        onPrefsChange={(patch) => setPrefs((p) => ({ ...p, ...patch }))}
       />
     );
   }

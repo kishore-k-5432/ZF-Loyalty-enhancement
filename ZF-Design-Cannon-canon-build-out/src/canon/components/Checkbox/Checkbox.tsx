@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef } from 'react';
 import { Stack, Text } from '../../primitives';
+import { Icon } from '../../icons';
+import { Tooltip } from '../Tooltip/Tooltip';
 import { cn } from '../../utils/cn';
 
 /**
@@ -51,6 +53,13 @@ export interface CheckboxProps {
    */
   ariaLabel?: string;
   description?: string;
+  /**
+   * An explainer, shown as an ⓘ right after the label with the text in a
+   * Tooltip on hover. For what the option DOES; `description` stays the
+   * one-line summary under it. Ignored on the bare box (no label to sit by).
+   * Clicking the ⓘ does not toggle the checkbox.
+   */
+  info?: string;
   error?: boolean;
   errorMessage?: string;
   disabled?: boolean;
@@ -75,7 +84,7 @@ export interface CheckboxProps {
 const CHECK_D = 'M 3.215 6.22 L 5.19 7.855 L 8.785 4.145';
 
 export function Checkbox({
-  selection = 'unchecked', onSelectionChange, label, ariaLabel, description,
+  selection = 'unchecked', onSelectionChange, label, ariaLabel, description, info,
   error, errorMessage, disabled, name, value, className,
 }: CheckboxProps) {
   const ref = useRef<HTMLInputElement>(null);
@@ -252,7 +261,21 @@ export function Checkbox({
             Medium after that pass (zf-input-field.md §2.2), and §10 defect 17
             asks which is intended. Following the measurement; §11 Q7.
           */}
-          <Text as="span" size="body" tone={disabled ? 'disabled' : 'default'}>{label}</Text>
+          {info ? (
+            <span className="inline-flex items-center gap-2">
+              <Text as="span" size="body" tone={disabled ? 'disabled' : 'default'}>{label}</Text>
+              {/*  Inside the <label>, so a click would toggle the box —
+                   swallowed here. Never `disabled`-toned: the reason a
+                   control is off is often exactly what the ⓘ explains.  */}
+              <span className="inline-flex cursor-help" onClick={(e) => e.preventDefault()}>
+                <Tooltip content={info} className="inline-flex">
+                  <Icon name="info" size="md" tone="subtle" />
+                </Tooltip>
+              </span>
+            </span>
+          ) : (
+            <Text as="span" size="body" tone={disabled ? 'disabled' : 'default'}>{label}</Text>
+          )}
           {description ? (
             //  §5: Figma's description is 12 / 19.2, off the 12/16 scale. §9 uses
             //  16, which is what `body-sm` is.

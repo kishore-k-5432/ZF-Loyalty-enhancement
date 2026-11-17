@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { IconName } from '@canon';
-import { Divider, Icon, Inline, Stack, StatusBadge, Surface, Text } from '@canon';
+import { Divider, Icon, Inline, Stack, StatusBadge, Surface, Text, Tooltip } from '@canon';
 
 /*  VERSION 3 — shared helpers for the V3 screens.
 
@@ -86,10 +86,12 @@ export function fixedReleaseDate(earned: string, frequency: string, day: number)
     `label` is what a screen reader announces.  */
 export function V3InfoTip({ tip }: { tip: string }) {
   return (
-    <Inline gap={0} align="center" className="h-control">
-      <Text as="span" title={tip} className="cursor-help">
-        <Icon name="info" size="md" tone="subtle" label={tip} />
-      </Text>
+    <Inline gap={0} align="center" className="h-control shrink-0">
+      {/*  The canon Tooltip, not `title`: a title tip waits on the browser's
+           delay and often does not show at all.  */}
+      <Tooltip content={tip} className="inline-flex cursor-help">
+        <Icon name="info" size="md" tone="subtle" />
+      </Tooltip>
     </Inline>
   );
 }

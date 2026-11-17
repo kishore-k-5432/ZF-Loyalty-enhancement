@@ -43,6 +43,11 @@ export function Tooltip({ content, enabled = true, children, className }: Toolti
   if (!enabled) return <>{children}</>;
 
   const move = (e: MouseEvent) => {
+    //  A tooltip nested inside this one (a Checkbox's ⓘ inside a "why is this
+    //  disabled" tip) owns the pointer while it is over it: hide this one, so
+    //  only the innermost bubble ever shows.
+    const inner = (e.target as HTMLElement).closest('[data-tooltip]');
+    if (inner && inner !== e.currentTarget) { setAt(null); return; }
     //  Flip to the pointer's left when the bubble would leave the viewport.
     //  The bubble is at most `chrome/tooltip` (240) wide; read it rather than
     //  hard-coding it, so a token change carries through.
@@ -52,6 +57,7 @@ export function Tooltip({ content, enabled = true, children, className }: Toolti
 
   return (
     <div
+      data-tooltip=""
       className={className}
       onMouseEnter={move}
       onMouseMove={move}
