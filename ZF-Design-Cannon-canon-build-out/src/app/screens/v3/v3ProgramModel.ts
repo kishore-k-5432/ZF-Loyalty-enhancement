@@ -63,8 +63,32 @@ export type SaleForm = ScheduleDates & UsageFields & {
 /*  Everything a Scheduled points program configures. STANDALONE: its own
     point value, and the usage fields — of which only minimum points and
     expiry are shown; pending and the redemption window stay off.  */
-/*  'none': awarded once, on the date.  */
-export type RepeatEvery = 'month' | 'quarter' | 'year' | 'none';
+/*  The recurrence (`v3spRecurrence`), trimmed from the Inventory stock-count
+    scheduler: an interval in months or years, and which day of the period
+    the award falls on. `repeats: false` is "Does not repeat" — awarded once,
+    on `awardDate`. When it repeats, `awardDate` is "Starts on" and the first
+    award is the first matching day on or after it.  */
+export type IntervalUnit = 'months' | 'years';
+export type AwardOnMode = 'date' | 'day';
+export type WeekOrdinal = 'first' | 'second' | 'third' | 'fourth' | 'last';
+export type Recurrence = {
+  repeats: boolean;
+  /** 1–12 months, or 1–5 years. Digits. */
+  intervalCount: string;
+  intervalUnit: IntervalUnit;
+  awardOn: AwardOnMode;
+  /** A specific date: day 1–28 of the month. Digits. */
+  awardDay: string;
+  /** A specific day: the nth weekday. */
+  awardWeek: WeekOrdinal;
+  /** 0 Sunday … 6 Saturday. */
+  awardWeekday: number;
+  /** Yearly intervals: 0 January … 11 December. */
+  awardMonth: number;
+  /** Every quarter: which month of each calendar quarter — 0 first
+      (Jan, Apr, Jul, Oct), 1 second, 2 third. */
+  quarterMonth: number;
+};
 /*  Points on purchase value, as in Points per sale's Loyalty Type:
       · single   — one rate, "for every INR X, Y points".
       · multiple — ranges: the total falls into one range and that range's
@@ -73,10 +97,9 @@ export type RepeatEvery = 'month' | 'quarter' | 'year' | 'none';
 export type ScheduledLoyaltyType = 'single' | 'multiple';
 export type RateRange = { id: string; from: string; to: string; forEvery: string; points: string };
 
-export type ScheduledForm = ScheduleDates & UsageFields & {
-  /** The first award date. ISO. */
+export type ScheduledForm = ScheduleDates & UsageFields & Recurrence & {
+  /** "Date" when it does not repeat, "Starts on" when it does. ISO. */
   awardDate: string;
-  repeat: RepeatEvery;
   loyaltyType: ScheduledLoyaltyType;
   /** Single Criteria. */
   forEvery: string;
@@ -184,7 +207,7 @@ export function seedRanges(): RateRange[] {
 }
 
 /*  A new Scheduled points program, with the spec's defaults: a custom date on
-    the first day of next quarter, every quarter, the seed ranges, INR 1 a
+    the first day of next quarter, not repeating, the seed ranges, INR 1 a
     point. Usage starts off, as in a new Points per sale program.  */
 export function blankScheduled(): ScheduledForm {
   const date = nextQuarterStart();
@@ -192,7 +215,15 @@ export function blankScheduled(): ScheduledForm {
     ...NO_DATES,
     ...BLANK_USAGE,
     awardDate: date,
-    repeat: 'quarter',
+    repeats: false,
+    intervalCount: '1',
+    intervalUnit: 'months',
+    awardOn: 'date',
+    awardDay: '1',
+    awardWeek: 'first',
+    awardWeekday: 0,
+    awardMonth: 0,
+    quarterMonth: 0,
     loyaltyType: 'multiple',
     forEvery: '1000',
     points: '1',
@@ -213,17 +244,16 @@ export const SEED_PROGRAMS: ProgramRecord[] = [
     sale: BLANK_SALE,
     scheduled: {
       ...blankScheduled(), ...PROGRAM_DATES,
-      awardDate: '2026-10-25', repeat: 'year',
+      awardDate: '2026-10-25', repeats: true, intervalCount: '1', intervalUnit: 'years', awardDay: '25', awardMonth: 9,
       pointsExpiration: true, expirationMode: 'date', expiryDate: '2026-11-10',
     },
   },
   {
     id: 'p-quarterly', name: 'Quarterly purchase rewards', description: 'Points by last quarter\'s purchase value', type: 'scheduled', active: true,
     sale: BLANK_SALE,
-    //  The 1 Apr 2027 award needs program dates that reach it.
     scheduled: {
       ...blankScheduled(), ...PROGRAM_DATES, programEnd: '2027-12-31',
-      awardDate: '2027-04-01', repeat: 'quarter',
+      awardDate: '2027-01-01', repeats: true, intervalCount: '3', intervalUnit: 'months', awardDay: '1',
       minPoints: true, minPointValue: '100',
       pointsExpiration: true, expirationMode: 'earning', expiryCount: '30', expiryUnit: 'days',
     },
@@ -231,7 +261,7 @@ export const SEED_PROGRAMS: ProgramRecord[] = [
   {
     id: 'p-annual', name: 'Annual purchase bonus', description: 'Points once a year on the year\'s purchase value', type: 'scheduled', active: true,
     sale: BLANK_SALE,
-    scheduled: { ...blankScheduled(), ...PROGRAM_DATES, awardDate: '2027-01-01', repeat: 'year',
+    scheduled: { ...blankScheduled(), ...PROGRAM_DATES, awardDate: '2027-01-01', repeats: true, intervalCount: '1', intervalUnit: 'years', awardDay: '1', awardMonth: 0,
       pointsExpiration: true, expirationMode: 'earning', expiryCount: '30', expiryUnit: 'days',
     },
   },

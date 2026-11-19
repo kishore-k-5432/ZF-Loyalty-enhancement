@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import {
-  Button, DatePicker, Divider, Field, Icon, Inline, InputField, RadioGroup, Select, Stack, Surface, Text, Tooltip,
+  Button, Divider, Field, Icon, Inline, InputField, RadioGroup, Stack, Surface, Text, Tooltip,
 } from '@canon';
 import { V3UsageCard } from './V3UsageCard';
 import { V3spRateRanges } from './v3spRateRanges';
+import { V3spRecurrence } from './v3spRecurrence';
 import { V3OptionCard, V3PreviewRow, V3RuleRow, v3Fmt as fmt, v3Period as period } from './v3Shared';
 import { releaseLabel } from './v3ProgramModel';
 import type { ScheduledForm, ScheduledLoyaltyType } from './v3ProgramModel';
@@ -17,8 +18,8 @@ import {
     A standalone program. Its cards, in order:
       · Points Rewarding Rules
           How to award  — Loyalty Type (one rate, or ranges), Amount per Point.
-          When to award — the date and how it repeats, with a note on which
-                          purchases each award counts.
+          When to award — V3spRecurrence: Date / Starts on, Repeat (with
+                          Change), Award on, and the first two award dates.
       · Points Usage Configuration — Points per sale's own card (V3UsageCard),
         without the Redemption Window: Availability, minimum points, Expiry.
 
@@ -41,12 +42,6 @@ const AMOUNT_PER_POINT_TIP = 'Value of one point when redeemed.';
 const LOYALTY_TYPE_OPTIONS = [
   { value: 'single', label: 'Single Criteria' },
   { value: 'multiple', label: 'Multiple Criteria' },
-];
-const REPEAT_OPTIONS = [
-  { value: 'month', label: 'Every month' },
-  { value: 'quarter', label: 'Every quarter' },
-  { value: 'year', label: 'Every year' },
-  { value: 'none', label: 'None' },
 ];
 
 /*  The ⓘ, as in Points per sale, but on the canon Tooltip so it shows on
@@ -169,26 +164,9 @@ export function V3ScheduledBody({ general, form: f, onChange: set, tried, previe
               <Subheading>When to award</Subheading>
 
               <Stack gap={4}>
-                <Inline gap={8} align="end" wrap>
-                  <Stack gap={0} className="w-field-sm shrink-0">
-                    <Field label="Date" required error={Boolean(e.date || e.dateRange)} message={e.date}>
-                      {({ id, required, error, describedBy }) => (
-                        <DatePicker id={id} required={required} error={error} ariaDescribedBy={describedBy} value={f.awardDate} onChange={(v) => update({ awardDate: v })} />
-                      )}
-                    </Field>
-                  </Stack>
-                  <Stack gap={0} className="w-field-sm shrink-0">
-                    <Field label="Repeat">
-                      {({ id, describedBy }) => (
-                        <Select id={id} ariaDescribedBy={describedBy} value={f.repeat} onChange={(v) => update({ repeat: v as ScheduledForm['repeat'] })} options={REPEAT_OPTIONS} />
-                      )}
-                    </Field>
-                  </Stack>
-                  {/*  Which purchases each award counts, with this program's dates.  */}
-                  <V3spInfoTip tip={purchaseWindowNote(f).join(' ')} />
-                </Inline>
-
-                {e.dateRange ? <Text size="body-sm" tone="danger">{e.dateRange}</Text> : null}
+                {/*  Date / Starts on, Repeat, Award on — and, on the ⓘ by
+                     Repeat, which purchases each award counts.  */}
+                <V3spRecurrence form={f} onChange={update} errors={{ date: e.date, dateRange: e.dateRange }} tip={purchaseWindowNote(f).join(' ')} />
 
               </Stack>
             </Stack>
