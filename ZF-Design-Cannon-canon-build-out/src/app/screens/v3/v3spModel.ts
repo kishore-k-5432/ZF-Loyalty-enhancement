@@ -1,6 +1,6 @@
 import { shiftPeriod, todayIso, v3Fmt as fmt } from './v3Shared';
 import { dateBounds } from './v3ProgramModel';
-import type { PurchasePeriod, RateRange, RepeatEvery, ScheduledForm } from './v3ProgramModel';
+import type { RateRange, RepeatEvery, ScheduledForm } from './v3ProgramModel';
 
 /*  VERSION 3 — SCHEDULED POINTS only (`v3sp`). The copy, dates and checks
     behind V3ScheduledBody. Nothing in Points per sale reads this file.  */
@@ -26,14 +26,6 @@ export function dayMonth(iso: string): string {
   return p ? `${p[2]} ${MONTHS[p[1]]}` : '—';
 }
 
-/*  The helper line under "When to award".  */
-export function whenHelper(f: ScheduledForm): string {
-  if (f.occasion === 'anniversary') return 'Awarded once a year on each customer\'s loyalty join date.';
-  if (f.repeat === 'none') return `Awarded once on ${fmt(f.awardDate)}.`;
-  if (f.repeat === 'year') return `Awarded every year on ${dayMonth(f.awardDate)}.`;
-  return `Awarded ${EVERY[f.repeat].toLowerCase()} from ${fmt(f.awardDate)}.`;
-}
-
 const n = (v: string) => Number(v) || 0;
 const pointWord = (p: number) => (p === 1 ? 'point' : 'points');
 
@@ -44,6 +36,12 @@ export function rangeLabel(r: RateRange, sep = '–'): string {
 
 /*  "INR 75,000–1,50,000 at 1 point per INR 1,000, INR 1,50,000–3,00,000 at 2, …"
     — later ranges drop "per INR X" while they share the first one's step.  */
+/*  Single Criteria: "1 point per INR 1,000".  */
+function singleRate(f: ScheduledForm): string {
+  if (!(n(f.forEvery) > 0 && n(f.points) > 0)) return 'no rate set';
+  return `${inr(n(f.points))} ${pointWord(n(f.points))} per INR ${inr(n(f.forEvery))}`;
+}
+
 function rateList(ranges: RateRange[]): string {
   const usable = ranges.filter((r) => n(r.from) > 0 && n(r.forEvery) > 0 && n(r.points) > 0);
   if (usable.length === 0) return 'no ranges set';
@@ -55,53 +53,66 @@ function rateList(ranges: RateRange[]): string {
   }).join(', ');
 }
 
-/*  "since the last award" / "in the last 3 months".  */
-const PERIOD_PHRASE: Record<PurchasePeriod, string> = {
-  '1m': 'in the last month',
-  '3m': 'in the last 3 months',
-  '6m': 'in the last 6 months',
-  '12m': 'in the last 12 months',
-};
+/*  Which purchases an award counts. The first award counts from the program
+    start date to the day before the award; each later one counts the repeat
+    interval just ended (every quarter → the last quarter).  */
+export type PurchaseWindow = { award: string; from: string; to: string };
 
-/*  How many months apart the awards are — anniversary is yearly; a one-off
-    (Repeat: None) has no next award, so any period is fine.  */
-const PERIOD_MONTHS: Record<PurchasePeriod, number> = { '1m': 1, '3m': 3, '6m': 6, '12m': 12 };
-const PERIOD_WORDS: Record<PurchasePeriod, string> = { '1m': 'last 1 month\'s', '3m': 'last 3 months\'', '6m': 'last 6 months\'', '12m': 'last 12 months\'' };
+export function purchaseWindows(f: ScheduledForm): { first: PurchaseWindow | null; next: PurchaseWindow | null } {
+  if (!parts(f.awardDate)) return { first: null, next: null };
+  const dayBefore = (iso: string) => shiftPeriod(iso, -1, 'days');
+  const first = f.programStart && f.programStart < f.awardDate
+    ? { award: f.awardDate, from: f.programStart, to: dayBefore(f.awardDate) } : null;
+  if (f.repeat === 'none') return { first, next: null };
+  const second = shiftPeriod(f.awardDate, STEP[f.repeat], 'months');
+  return { first, next: { award: second, from: f.awardDate, to: dayBefore(second) } };
+}
 
-/*  The warning when the purchase period does not match the gap between
-    awards: longer, and the same purchases count in more than one award;
-    shorter, and purchases in between earn nothing. Null when they match.  */
-export function periodMismatch(f: ScheduledForm): string | null {
-  const gap = f.occasion === 'anniversary' ? 12 : f.repeat === 'none' ? null : STEP[f.repeat];
-  const months = PERIOD_MONTHS[f.purchasePeriod];
-  if (gap === null || months === gap) return null;
-  const every = f.occasion === 'anniversary' ? 'once a year' : `every ${f.repeat}`;
-  return months > gap
-    ? `Points are awarded ${every}, but the ${PERIOD_WORDS[f.purchasePeriod]} purchases are counted, so the same purchases will count in more than one award.`
-    : `Points are awarded ${every}, but only the ${PERIOD_WORDS[f.purchasePeriod]} purchases are counted, so purchases in between will earn nothing.`;
+const LAST: Record<Exclude<RepeatEvery, 'none'>, string> = { month: 'month', quarter: 'quarter', year: 'year' };
+
+/*  The explainer under When to award, with this program's own dates.  */
+export function purchaseWindowNote(f: ScheduledForm): string[] {
+  const { first, next } = purchaseWindows(f);
+  if (!parts(f.awardDate)) return ['Set the award date to see which purchases each award counts.'];
+  const firstLine = first
+    ? `First award (${fmt(first.award)}) counts purchases from the program start date to the day before: ${fmt(first.from)} – ${fmt(first.to)}.`
+    : `First award (${fmt(f.awardDate)}) counts purchases from the program start date to the day before.`;
+  if (f.repeat === 'none' || !next) return [firstLine];
+  return [
+    firstLine,
+    `After that, each award counts the last ${LAST[f.repeat]}. For example, ${fmt(next.award)} counts ${fmt(next.from)} – ${fmt(next.to)}.`,
+  ];
 }
 
 export function summary(f: ScheduledForm): string {
-  const on = `purchases ${PERIOD_PHRASE[f.purchasePeriod]}: ${rateList(f.ranges)}`;
-  if (f.occasion === 'anniversary') return `On each customer's membership anniversary, they get points on their ${on}.`;
-
   const lead = f.repeat === 'none' ? `On ${fmt(f.awardDate)}`
     : f.repeat === 'year' ? `Every year on ${dayMonth(f.awardDate)}` : `${EVERY[f.repeat]} from ${fmt(f.awardDate)}`;
-  return `${lead}, customers get points on their ${on}.`;
+  const rate = f.loyaltyType === 'single' ? ` at ${singleRate(f)}` : `: ${rateList(f.ranges)}`;
+  return `${lead}, customers get points on their purchase value${rate}.`;
 }
 
-/*  The next award on or after today, within the program dates.  */
+/*  The next award on or after today.  */
 export function nextAward(f: ScheduledForm, today = todayIso()): string {
-  if (f.occasion === 'anniversary') return 'Checked daily';
   if (!parts(f.awardDate)) return '—';
-  const { end } = dateBounds(f);
 
   let k = 0; let next = f.awardDate;
   if (f.repeat === 'none') return f.awardDate >= today ? fmt(f.awardDate) : `Awarded on ${fmt(f.awardDate)}`;
   const step = STEP[f.repeat];
   while (next < today && k < 1200) { k += step; next = shiftPeriod(f.awardDate, k, 'months'); }
-  if (end && next > end) return `No more awards — the program ends ${fmt(end)}`;
   return fmt(next);
+}
+
+/*  The purchases the next award (on or after today) counts.  */
+export function nextAwardCounts(f: ScheduledForm, today = todayIso()): string {
+  if (!parts(f.awardDate)) return '—';
+  const dayBefore = (iso: string) => shiftPeriod(iso, -1, 'days');
+  const fromStart = (award: string) => (f.programStart && f.programStart < award ? `${fmt(f.programStart)} – ${fmt(dayBefore(award))}` : 'From the program start date');
+  if (f.repeat === 'none' || f.awardDate >= today) return fromStart(f.awardDate);
+  const step = STEP[f.repeat];
+  let k = 0; let next = f.awardDate;
+  while (next < today && k < 1200) { k += step; next = shiftPeriod(f.awardDate, k, 'months'); }
+  const prev = shiftPeriod(f.awardDate, k - step, 'months');
+  return `${fmt(prev)} – ${fmt(dayBefore(next))}`;
 }
 
 /* ── Validation ────────────────────────────────────────────────────────────── */
@@ -109,11 +120,13 @@ export function nextAward(f: ScheduledForm, today = todayIso()): string {
 export type RangeError = { from?: string; to?: string; forEvery?: string; points?: string };
 
 export type ScheduledErrors = {
-  /** Award date missing (custom date). */
+  /** Award date missing. */
   date?: string;
-  /** Award date outside the program dates. */
+  /** Award date before the program start date. */
   dateRange?: string;
   amount?: string;
+  /** Single Criteria's one rate. */
+  single: { forEvery?: string; points?: string };
   /** One per range row. */
   ranges: RangeError[];
 };
@@ -122,17 +135,21 @@ export type ScheduledErrors = {
     rest — From < To, overlaps, an open To above the last row, the date
     range — show as soon as they are true.  */
 export function scheduledErrors(f: ScheduledForm, tried = true): ScheduledErrors {
-  const e: ScheduledErrors = { ranges: [] };
-  const custom = f.occasion === 'custom';
+  const e: ScheduledErrors = { ranges: [], single: {} };
   const positive = (v: string, msg: string) => ((v.trim() !== '' || tried) && !(n(v) > 0) ? msg : undefined);
 
-  if (custom && !f.awardDate && tried) e.date = 'Select the award date.';
-  const { start, end } = dateBounds(f);
-  if (custom && f.awardDate && start && end && (f.awardDate < start || f.awardDate > end)) {
-    e.dateRange = `Award date must be within the program dates (${fmt(start)} – ${fmt(end)}).`;
+  if (!f.awardDate && tried) e.date = 'Select the award date.';
+  const { start } = dateBounds(f);
+  if (f.awardDate && start && f.awardDate < start) {
+    e.dateRange = `Award date can't be before the program start date (${fmt(start)}).`;
   }
 
-  {
+  if (f.loyaltyType === 'single') {
+    e.single = {
+      forEvery: positive(f.forEvery, 'Enter the purchase value per rate step.'),
+      points: positive(f.points, 'Points must be greater than 0.'),
+    };
+  } else {
     const last = f.ranges.length - 1;
     e.ranges = f.ranges.map((r, i) => {
       const re: RangeError = {};
@@ -153,14 +170,22 @@ export function scheduledErrors(f: ScheduledForm, tried = true): ScheduledErrors
 
 export function hasErrors(e: ScheduledErrors): boolean {
   return Boolean(e.date || e.dateRange || e.amount)
+    || Boolean(e.single.forEvery || e.single.points)
     || e.ranges.some((r) => r.from || r.to || r.forEvery || r.points);
 }
 
-/*  The "Try it": points = floor(total ÷ For Every) × points, at the rate of
-    the one range the total falls in (From inclusive, To exclusive).  */
+/*  The "Try it": points = floor(total ÷ For Every) × points — Single
+    Criteria's one rate, or the rate of the one range the total falls in
+    (From inclusive, To exclusive).  */
 export function tryRate(f: ScheduledForm, purchased: number): string {
   const apv = n(f.amountPerPoint);
   const earn = (forEvery: number, pts: number) => Math.floor(purchased / forEvery) * pts;
+
+  if (f.loyaltyType === 'single') {
+    if (!(n(f.forEvery) > 0 && n(f.points) > 0)) return 'Set the rate to see what a customer gets.';
+    const got = earn(n(f.forEvery), n(f.points));
+    return `At ${singleRate(f)} → ${inr(got)} ${pointWord(got)} (INR ${inr(got * apv)}).`;
+  }
 
   const usable = f.ranges
     .filter((r) => n(r.from) > 0 && n(r.forEvery) > 0 && n(r.points) > 0)

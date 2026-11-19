@@ -2,12 +2,12 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { SettingsLink } from '@canon';
 import {
-  Banner, Button, Divider, Field, Icon, Inline, InputField, RadioGroup, SettingsShell, Stack, Text, Textarea,
+  Banner, Button, Checkbox, DatePicker, Divider, Field, Icon, Inline, InputField, RadioGroup, SettingsShell, Stack, Text, Textarea,
 } from '@canon';
 import { COMMERCE_MARK } from '../data/books-marks';
 import { SETTINGS_SECTIONS } from '../data/settings';
 import { PROGRAM_TYPE_LABEL, blankScheduled } from './v3/v3ProgramModel';
-import type { ProgramRecord, ProgramType, SaleForm, ScheduledForm } from './v3/v3ProgramModel';
+import type { ProgramRecord, ProgramType, SaleForm, ScheduleDates, ScheduledForm } from './v3/v3ProgramModel';
 import { V3SaleBody } from './v3/V3SaleBody';
 import { V3ScheduledBody } from './v3/V3ScheduledBody';
 import { hasErrors, scheduledErrors } from './v3/v3spModel';
@@ -16,10 +16,11 @@ import { hasErrors, scheduledErrors } from './v3/v3spModel';
     when the earlier V2 was scrapped on 2026-11-17. Its parts still live in
     screens/v3/ under their V3 names.)
 
-    General Details and Program Type, then a body that depends on the type:
+    General Details (name, description, program start date, Never Expire)
+    and Program Type, then a body that depends on the type:
       · Points per sale  → V3SaleBody (V2's form + the pending period)
-      · Scheduled points → V3ScheduledBody (a standalone program: occasion,
-        fixed or slab points, its own point value, a redemption window)
+      · Scheduled points → V3ScheduledBody (a standalone program: an award
+        date and repeat, a single rate or ranges, its own point value)
 
     The program list, the saved programs and the routing live in App. This
     screen edits a private draft and hands it back on Save. V1 and V2 are not
@@ -51,7 +52,7 @@ const PROGRAM_TYPE_OPTIONS = [
   {
     value: 'scheduled',
     label: PROGRAM_TYPE_LABEL.scheduled,
-    description: 'Customers receive points automatically on a date, such as their birthday or a recurring schedule.',
+    description: 'Customers receive points automatically on a date you set, once or on a repeating schedule.',
   },
 ];
 
@@ -78,9 +79,13 @@ export function LoyaltyV2({
     onTypeChange(type);
   };
 
+  //  The program dates sit in General Details, but belong to the type's form.
+  const dates: ScheduleDates = draft.type === 'sale' ? draft.sale : draft.scheduled;
+  const setDates = (patch: Partial<ScheduleDates>) => (draft.type === 'sale' ? setSale(patch) : setScheduled(patch));
+
   const save = () => {
     setTried(true);
-    if (!draft.name.trim()) return;
+    if (!draft.name.trim() || !dates.programStart) return;
     if (draft.type === 'scheduled') {
       if (hasErrors(scheduledErrors(draft.scheduled))) return;
     }
@@ -89,6 +94,7 @@ export function LoyaltyV2({
   };
 
   const nameError = tried && !draft.name.trim();
+  const startError = tried && !dates.programStart;
   //  An existing Points per sale program keeps V2's read-only name, description
   //  and rewarding rules. Scheduled programs and new ones are editable.
   const readOnlyBasics = !isNew && draft.type === 'sale';
@@ -114,6 +120,27 @@ export function LoyaltyV2({
           )}
         </Field>
       </Stack>
+
+      {/*  Program dates: a start date, and Never Expire. (Was the right
+           rail's Schedule Program card.)  */}
+      <Inline gap={10} align="end" className="flex-nowrap">
+        <Stack gap={0} className="w-field-xl shrink-0">
+          <Field label="Program Start Date" required error={startError} message={startError ? 'Select the program start date.' : undefined}>
+            {({ id, required, error, describedBy }) => (
+              <DatePicker id={id} required={required} error={error} ariaDescribedBy={describedBy} value={dates.programStart} onChange={(v) => setDates({ programStart: v })} />
+            )}
+          </Field>
+        </Stack>
+        {/*  Beside the date, on the input's line; its description moves to the ⓘ.  */}
+        <Inline gap={0} align="center" className="h-control">
+          <Checkbox
+            label="Never Expire"
+            info="The program will remain active indefinitely."
+            selection={dates.neverExpire ? 'checked' : 'unchecked'}
+            onSelectionChange={(next) => setDates({ neverExpire: next === 'checked' })}
+          />
+        </Inline>
+      </Inline>
 
       {/*  Program Type: chosen at creation, fixed afterwards. In edit mode
            only the chosen card is shown, with a lock note.  */}

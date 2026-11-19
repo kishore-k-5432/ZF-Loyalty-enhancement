@@ -10,7 +10,6 @@ import {
   v3MinusPeriod as minusPeriod, v3Period as period,
 } from './v3Shared';
 import type { V3Check as Check } from './v3Shared';
-import { V3SchedulePanel } from './V3SchedulePanel';
 import { V3UsageCard } from './V3UsageCard';
 import type { SaleForm } from './v3ProgramModel';
 
@@ -229,9 +228,6 @@ export function V3SaleBody({ general, form: f, onChange: set, editable, previewO
         {/*  RIGHT COLUMN — stretched to the form's height so the preview has a
              track to stick in.  */}
         <Stack gap={8} className="self-stretch w-settings-aside shrink-0">
-          {/*  5. SCHEDULE PROGRAM  */}
-          <V3SchedulePanel value={f} onChange={set} />
-
           {/*  6. LIVE PREVIEW  */}
           <Stack gap={0} className="sticky top-10 max-h-settings-sticky-max overflow-y-auto overscroll-contain">
           <Surface tone="sunken" radius="xl" pad={12}>

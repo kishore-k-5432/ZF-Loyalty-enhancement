@@ -6,13 +6,13 @@ import type { UsageFields } from './v3ProgramModel';
 
 /*  VERSION 3 — the Points Usage Configuration card, shared by both program
     types: Availability (the pending period), Redemption, Expiry.
-    `variant="scheduled"` drops Availability and keeps only the minimum
-    points from Redemption — no Redemption Window.  */
+    `variant="scheduled"` drops the Redemption Window; Availability,
+    minimum points and Expiry stay.  */
 
 export interface V3UsageCardProps {
   form: UsageFields;
   onChange: (patch: Partial<UsageFields>) => void;
-  /** 'sale': every group. 'scheduled': minimum points + Expiry only. */
+  /** 'sale': every group. 'scheduled': no Redemption Window. */
   variant: 'sale' | 'scheduled';
 }
 
@@ -68,9 +68,7 @@ export function V3UsageCard({ form: f, onChange: set, variant }: V3UsageCardProp
 
   return (
           <V3OptionCard title="Points Usage Configuration" icon="hourglass">
-            {/*  3a. AVAILABILITY (V3) — the pending period. Points per sale only.  */}
-            {sale ? (
-            <>
+            {/*  3a. AVAILABILITY (V3) — the pending period. Both types.  */}
             <Stack gap={8}>
               <Text as="h4" size="body-lg" weight="medium">Availability</Text>
 
@@ -169,8 +167,6 @@ export function V3UsageCard({ form: f, onChange: set, variant }: V3UsageCardProp
             </Stack>
 
             <Divider gap="none" />
-            </>
-            ) : null}
 
             {/*  Redemption — the window is Points per sale only.  */}
 

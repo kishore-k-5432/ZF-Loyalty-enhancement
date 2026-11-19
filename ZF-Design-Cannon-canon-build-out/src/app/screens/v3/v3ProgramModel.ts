@@ -4,10 +4,10 @@ import { clampDay, todayIso, toIso, v3Period as period } from './v3Shared';
 
     A loyalty program has a TYPE, chosen at creation and fixed afterwards:
       · Points per sale   — earns on a bill (the program V1/V2 configure).
-      · Scheduled points  — awards on an occasion (a custom date, or each
-        customer's membership anniversary), at a rate on purchase value.
-        A standalone program: its own point value, minimum points and expiry
-        (Points per sale's usage card without Availability or the window).  */
+      · Scheduled points  — awards on a date, once or repeating, at a rate on
+        purchase value.
+        A standalone program: its own point value, and Points per sale's usage
+        card without the Redemption Window.  */
 
 export type ProgramType = 'sale' | 'scheduled';
 
@@ -16,7 +16,9 @@ export const PROGRAM_TYPE_LABEL: Record<ProgramType, string> = {
   scheduled: 'Scheduled points',
 };
 
-/*  The program dates — the right rail's Schedule Program card. Both types.  */
+/*  The program dates — Program Start Date and Never Expire, under General
+    Details. Both types. `programDates` and `programEnd` are kept from the
+    old Schedule Program card but no longer shown or used.  */
 export type ScheduleDates = {
   programDates: boolean;
   programStart: string;
@@ -61,30 +63,25 @@ export type SaleForm = ScheduleDates & UsageFields & {
 /*  Everything a Scheduled points program configures. STANDALONE: its own
     point value, and the usage fields — of which only minimum points and
     expiry are shown; pending and the redemption window stay off.  */
-export type Occasion = 'anniversary' | 'custom';
 /*  'none': awarded once, on the date.  */
 export type RepeatEvery = 'month' | 'quarter' | 'year' | 'none';
-/*  Points on purchase value, drawn like Points per sale's Multiple Criteria:
-    the total for the purchase period falls into one range and that range's
-    rate applies to all of it. An empty `to` on the last range means "and
-    above".  */
-export type PurchasePeriod = '1m' | '3m' | '6m' | '12m';
-export const PURCHASE_PERIOD_LABEL: Record<PurchasePeriod, string> = {
-  '1m': 'Last 1 month',
-  '3m': 'Last 3 months',
-  '6m': 'Last 6 months',
-  '12m': 'Last 12 months',
-};
+/*  Points on purchase value, as in Points per sale's Loyalty Type:
+      · single   — one rate, "for every INR X, Y points".
+      · multiple — ranges: the total falls into one range and that range's
+        rate applies to all of it. An empty `to` on the last range means
+        "and above".  */
+export type ScheduledLoyaltyType = 'single' | 'multiple';
 export type RateRange = { id: string; from: string; to: string; forEvery: string; points: string };
 
 export type ScheduledForm = ScheduleDates & UsageFields & {
-  occasion: Occasion;
-  /** Custom date only. ISO. */
+  /** The first award date. ISO. */
   awardDate: string;
-  /** Custom date only. */
   repeat: RepeatEvery;
-  /** Where the purchase value is counted from. */
-  purchasePeriod: PurchasePeriod;
+  loyaltyType: ScheduledLoyaltyType;
+  /** Single Criteria. */
+  forEvery: string;
+  points: string;
+  /** Multiple Criteria. */
   ranges: RateRange[];
   amountPerPoint: string;
 };
@@ -102,7 +99,7 @@ export type ProgramRecord = {
 };
 
 const PROGRAM_DATES: ScheduleDates = {
-  programDates: true, programStart: '2026-10-01', programEnd: '2026-12-31', neverExpire: false,
+  programDates: true, programStart: '2026-10-01', programEnd: '2026-12-31', neverExpire: true,
 };
 const NO_DATES: ScheduleDates = {
   programDates: false, programStart: '', programEnd: '', neverExpire: false,
@@ -194,10 +191,11 @@ export function blankScheduled(): ScheduledForm {
   return {
     ...NO_DATES,
     ...BLANK_USAGE,
-    occasion: 'custom',
     awardDate: date,
     repeat: 'quarter',
-    purchasePeriod: '1m',
+    loyaltyType: 'multiple',
+    forEvery: '1000',
+    points: '1',
     ranges: seedRanges(),
     amountPerPoint: '1',
   };
@@ -215,7 +213,7 @@ export const SEED_PROGRAMS: ProgramRecord[] = [
     sale: BLANK_SALE,
     scheduled: {
       ...blankScheduled(), ...PROGRAM_DATES,
-      awardDate: '2026-10-25', repeat: 'year', purchasePeriod: '12m',
+      awardDate: '2026-10-25', repeat: 'year',
       pointsExpiration: true, expirationMode: 'date', expiryDate: '2026-11-10',
     },
   },
@@ -225,27 +223,24 @@ export const SEED_PROGRAMS: ProgramRecord[] = [
     //  The 1 Apr 2027 award needs program dates that reach it.
     scheduled: {
       ...blankScheduled(), ...PROGRAM_DATES, programEnd: '2027-12-31',
-      awardDate: '2027-04-01', repeat: 'quarter', purchasePeriod: '3m',
+      awardDate: '2027-04-01', repeat: 'quarter',
       minPoints: true, minPointValue: '100',
       pointsExpiration: true, expirationMode: 'earning', expiryCount: '30', expiryUnit: 'days',
     },
   },
   {
-    id: 'p-anniversary', name: 'Membership anniversary bonus', description: 'Points on each customer\'s membership anniversary', type: 'scheduled', active: true,
+    id: 'p-annual', name: 'Annual purchase bonus', description: 'Points once a year on the year\'s purchase value', type: 'scheduled', active: true,
     sale: BLANK_SALE,
-    scheduled: { ...blankScheduled(), ...PROGRAM_DATES, occasion: 'anniversary', purchasePeriod: '12m',
+    scheduled: { ...blankScheduled(), ...PROGRAM_DATES, awardDate: '2027-01-01', repeat: 'year',
       pointsExpiration: true, expirationMode: 'earning', expiryCount: '30', expiryUnit: 'days',
     },
   },
 ];
 
-/*  The program's own date bounds, or nulls when it has none.  */
+/*  The program's own date bounds. Only a start date is set now; there is no
+    end date field, so `end` is always null.  */
 export function dateBounds(d: ScheduleDates): { start: string | null; end: string | null } {
-  const bounded = d.programDates && !d.neverExpire;
-  return {
-    start: bounded && d.programStart ? d.programStart : null,
-    end: bounded && d.programEnd ? d.programEnd : null,
-  };
+  return { start: d.programStart || null, end: null };
 }
 
 /*  "15 days after earning" / "On day 1 of every month".  */
