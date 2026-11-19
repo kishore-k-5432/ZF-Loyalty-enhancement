@@ -1,4 +1,4 @@
-import { clampDay, todayIso, toIso, v3Period as period } from './v3Shared';
+import { todayIso, toIso, v3Period as period } from './v3Shared';
 
 /*  VERSION 3 — the program model.
 
@@ -16,9 +16,9 @@ export const PROGRAM_TYPE_LABEL: Record<ProgramType, string> = {
   scheduled: 'Scheduled points',
 };
 
-/*  The program dates — Program Start Date and Never Expire, under General
-    Details. Both types. `programDates` and `programEnd` are kept from the
-    old Schedule Program card but no longer shown or used.  */
+/*  The program dates — Program Start Date, Never Expire and, when Never
+    Expire is off, Program End Date, under General Details. Both types.
+    `programDates` is kept from the old Schedule Program card but unused.  */
 export type ScheduleDates = {
   programDates: boolean;
   programStart: string;
@@ -65,8 +65,8 @@ export type SaleForm = ScheduleDates & UsageFields & {
     expiry are shown; pending and the redemption window stay off.  */
 /*  The recurrence (`v3spRecurrence`), trimmed from the Inventory stock-count
     scheduler: an interval in months or years, and which day of the period
-    the award falls on. `repeats: false` is "Does not repeat" — awarded once,
-    on `awardDate`. When it repeats, `awardDate` is "Starts on" and the first
+    the award falls on. It always repeats (no "Does not repeat", no award
+    date — `awardDate` is unused) and starts from the program start date: the first
     award is the first matching day on or after it.  */
 export type IntervalUnit = 'months' | 'years';
 export type AwardOnMode = 'date' | 'day';
@@ -98,7 +98,7 @@ export type ScheduledLoyaltyType = 'single' | 'multiple';
 export type RateRange = { id: string; from: string; to: string; forEvery: string; points: string };
 
 export type ScheduledForm = ScheduleDates & UsageFields & Recurrence & {
-  /** "Date" when it does not repeat, "Starts on" when it does. ISO. */
+  /** The award date when it does not repeat (repeating runs from the program start). ISO. */
   awardDate: string;
   loyaltyType: ScheduledLoyaltyType;
   /** Single Criteria. */
@@ -122,7 +122,7 @@ export type ProgramRecord = {
 };
 
 const PROGRAM_DATES: ScheduleDates = {
-  programDates: true, programStart: '2026-10-01', programEnd: '2026-12-31', neverExpire: true,
+  programDates: true, programStart: '2026-10-01', programEnd: '', neverExpire: true,
 };
 const NO_DATES: ScheduleDates = {
   programDates: false, programStart: '', programEnd: '', neverExpire: false,
@@ -215,7 +215,7 @@ export function blankScheduled(): ScheduledForm {
     ...NO_DATES,
     ...BLANK_USAGE,
     awardDate: date,
-    repeats: false,
+    repeats: true,
     intervalCount: '1',
     intervalUnit: 'months',
     awardOn: 'date',
@@ -267,17 +267,22 @@ export const SEED_PROGRAMS: ProgramRecord[] = [
   },
 ];
 
-/*  The program's own date bounds. Only a start date is set now; there is no
-    end date field, so `end` is always null.  */
+/*  The program's own date bounds. `end` is null while Never Expire is on.  */
 export function dateBounds(d: ScheduleDates): { start: string | null; end: string | null } {
-  return { start: d.programStart || null, end: null };
+  return { start: d.programStart || null, end: d.neverExpire ? null : d.programEnd || null };
 }
 
-/*  "15 days after earning" / "On day 1 of every month".  */
+/*  Program End Date errors: missing (once Save is tried), or before the start.  */
+export function endDateError(d: ScheduleDates, tried: boolean): string | undefined {
+  if (d.neverExpire) return undefined;
+  if (!d.programEnd) return tried ? 'Select the program end date, or tick Never Expire.' : undefined;
+  if (d.programStart && d.programEnd < d.programStart) return "The end date can't be before the start date.";
+  return undefined;
+}
+
+/*  "15 days after earning". (The fixed-date release method was removed.)  */
 export function releaseLabel(u: UsageFields): string {
-  return u.releaseMode === 'fixed'
-    ? `On day ${clampDay(u.releaseDay)} of every ${u.releaseFrequency === 'quarterly' ? 'quarter' : 'month'}`
-    : `${period(u.pendingCount, u.pendingUnit)} after earning`;
+  return `${period(u.pendingCount, u.pendingUnit)} after earning`;
 }
 
 export function cloneRecord(r: ProgramRecord): ProgramRecord {

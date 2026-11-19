@@ -3,7 +3,13 @@ import { dateBounds } from './v3ProgramModel';
 import type { RateRange, Recurrence, ScheduledForm, WeekOrdinal } from './v3ProgramModel';
 
 /*  What the award dates depend on.  */
-export type AwardSchedule = Recurrence & { awardDate: string };
+export type AwardSchedule = Recurrence & { awardDate: string; programStart: string };
+
+/*  Where the schedule starts: the program start date (it always repeats;
+    there is no award date or Starts on).  */
+export function anchor(f: AwardSchedule): string {
+  return f.programStart;
+}
 
 /*  VERSION 3 — SCHEDULED POINTS only (`v3sp`). The copy, dates and checks
     behind V3ScheduledBody. Nothing in Points per sale reads this file.  */
@@ -117,21 +123,22 @@ function dayIn(r: Recurrence, y: number, m: number): Date {
 }
 
 /*  The first `count` award dates. Not repeating: the one date. Repeating:
-    the first matching day on or after Starts on (for yearly intervals, in
-    the chosen month), then one per interval from that month.  */
+    the first matching day AFTER the program start date (an award on the
+    start day would count no purchases; for yearly intervals, in the chosen
+    month), then one per interval from that month.  */
 export function occurrences(f: AwardSchedule, count: number): string[] {
-  const p = parts(f.awardDate);
+  const p = parts(anchor(f));
   if (!p) return [];
-  if (!f.repeats) return [f.awardDate];
+  if (!f.repeats) return [anchor(f)];
   const yearly = f.intervalUnit === 'years';
   const quarterly = isQuarterly(f);
-  //  Find the first period whose award day is on or after Starts on. Yearly
+  //  Find the first period whose award day is after the program start. Yearly
   //  awards sit in the chosen month, quarterly ones in the chosen month of
   //  each calendar quarter; others in any month.
   let y = p[0];
   let m = yearly ? f.awardMonth : quarterly ? Math.floor(p[1] / 3) * 3 + (f.quarterMonth || 0) : p[1];
   const hop = yearly ? 12 : quarterly ? 3 : 1;
-  for (let guard = 0; guard < 24 && toIso(dayIn(f, y, m)) < f.awardDate; guard += 1) {
+  for (let guard = 0; guard < 24 && toIso(dayIn(f, y, m)) <= anchor(f); guard += 1) {
     m += hop; if (m > 11) { m -= 12; y += 1; }
   }
   const step = intervalMonths(f);
@@ -157,9 +164,9 @@ export function firstNextLine(f: AwardSchedule): string | null {
 
 /*  "Awarded every 3 months on day 1, from 1 Jan 2027."  */
 export function whenHelper(f: ScheduledForm): string {
-  if (!parts(f.awardDate)) return 'Set the date to see when points are awarded.';
-  if (!f.repeats) return `Awarded once, on ${fmt(f.awardDate)}.`;
-  return `Awarded ${everyPhrase(f)} ${awardOnPhrase(f)}, from ${fmt(f.awardDate)}.`;
+  if (!parts(anchor(f))) return f.repeats ? 'Set the program start date to see when points are awarded.' : 'Set the date to see when points are awarded.';
+  if (!f.repeats) return `Awarded once, on ${fmt(anchor(f))}.`;
+  return `Awarded ${everyPhrase(f)} ${awardOnPhrase(f)}, from ${fmt(firstAward(f) ?? anchor(f))}.`;
 }
 
 const dayBefore = (iso: string) => shiftPeriod(iso, -1, 'days');
@@ -177,7 +184,7 @@ function windowFor(f: ScheduledForm, dates: string[], index: number): { from: st
 
 /*  The ⓘ by Repeat: when, then which purchases each award counts.  */
 export function purchaseWindowNote(f: ScheduledForm): string[] {
-  if (!parts(f.awardDate)) return ['Set the date to see which purchases each award counts.'];
+  if (!parts(anchor(f))) return [f.repeats ? 'Set the program start date to see which purchases each award counts.' : 'Set the date to see which purchases each award counts.'];
   const dates = occurrences(f, 2);
   const first = windowFor(f, dates, 0);
   const lines = [whenHelper(f)];
@@ -190,15 +197,15 @@ export function purchaseWindowNote(f: ScheduledForm): string[] {
 }
 
 export function summary(f: ScheduledForm): string {
-  const lead = !f.repeats ? `On ${fmt(f.awardDate)}`
-    : `${everyPhrase(f).replace(/^e/, 'E')} ${awardOnPhrase(f)}, from ${fmt(firstAward(f) ?? f.awardDate)}`;
+  const lead = !f.repeats ? `On ${fmt(anchor(f))}`
+    : `${everyPhrase(f).replace(/^e/, 'E')} ${awardOnPhrase(f)}, from ${fmt(firstAward(f) ?? anchor(f))}`;
   const rate = f.loyaltyType === 'single' ? ` at ${singleRate(f)}` : `: ${rateList(f.ranges)}`;
   return `${lead}, customers get points on their purchase value${rate}.`;
 }
 
 /*  The index of the next award on or after today, with the dates up to it.  */
 function upcoming(f: ScheduledForm, today: string): { dates: string[]; index: number } {
-  if (!f.repeats) return { dates: [f.awardDate], index: 0 };
+  if (!f.repeats) return { dates: [anchor(f)], index: 0 };
   for (let k = 2; k <= 1200; k *= 2) {
     const dates = occurrences(f, k);
     const index = dates.findIndex((d) => d >= today);
@@ -209,15 +216,35 @@ function upcoming(f: ScheduledForm, today: string): { dates: string[]; index: nu
 
 /*  The next award on or after today.  */
 export function nextAward(f: ScheduledForm, today = todayIso()): string {
-  if (!parts(f.awardDate)) return '—';
-  if (!f.repeats) return f.awardDate >= today ? fmt(f.awardDate) : `Awarded on ${fmt(f.awardDate)}`;
+  if (!parts(anchor(f))) return '—';
+  if (!f.repeats) return anchor(f) >= today ? fmt(anchor(f)) : `Awarded on ${fmt(anchor(f))}`;
   const { dates, index } = upcoming(f, today);
+  const { end } = dateBounds(f);
+  if (index >= 0 && end && dates[index] > end) return `None — the program ends on ${fmt(end)}`;
   return index >= 0 ? fmt(dates[index]) : '—';
+}
+
+/*  Under Award on: the next `count` awards from today, each with the
+    purchases it counts. Stops at the program end date.  */
+export type AwardWindow = { award: string; from: string; to: string };
+export function upcomingWindows(f: ScheduledForm, count = 3, today = todayIso()): AwardWindow[] {
+  if (!parts(anchor(f))) return [];
+  const { index } = upcoming(f, today);
+  if (index < 0) return [];
+  const dates = f.repeats ? occurrences(f, index + count) : [anchor(f)];
+  const { end } = dateBounds(f);
+  const out: AwardWindow[] = [];
+  for (let i = index; i < dates.length && out.length < count; i += 1) {
+    if (end && dates[i] > end) break;
+    const w = windowFor(f, dates, i);
+    if (w) out.push({ award: dates[i], ...w });
+  }
+  return out;
 }
 
 /*  The purchases the next award (on or after today) counts.  */
 export function nextAwardCounts(f: ScheduledForm, today = todayIso()): string {
-  if (!parts(f.awardDate)) return '—';
+  if (!parts(anchor(f))) return '—';
   const { dates, index } = upcoming(f, today);
   const w = index >= 0 ? windowFor(f, dates, f.repeats ? index : 0) : null;
   return w ? `${fmt(w.from)} – ${fmt(w.to)}` : 'From the program start date';
@@ -246,11 +273,12 @@ export function scheduledErrors(f: ScheduledForm, tried = true): ScheduledErrors
   const e: ScheduledErrors = { ranges: [], single: {} };
   const positive = (v: string, msg: string) => ((v.trim() !== '' || tried) && !(n(v) > 0) ? msg : undefined);
 
-  if (!f.awardDate && tried) e.date = 'Select the award date.';
-  const { start } = dateBounds(f);
+  const { start, end } = dateBounds(f);
   const first = firstAward(f);
   if (first && start && first < start) {
     e.dateRange = `First award can't be before the program start date (${fmt(start)}).`;
+  } else if (first && end && first > end) {
+    e.dateRange = `First award can't be after the program end date (${fmt(end)}).`;
   }
 
   if (f.loyaltyType === 'single') {

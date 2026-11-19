@@ -1,7 +1,7 @@
 import {
   Banner, Checkbox, DatePicker, Divider, Field, Inline, InputField, RadioGroup, Select, Stack, Text, Tooltip,
 } from '@canon';
-import { V3OptionCard, clampDay, toDays, v3Fmt as fmt } from './v3Shared';
+import { V3OptionCard, toDays, v3Fmt as fmt } from './v3Shared';
 import type { UsageFields } from './v3ProgramModel';
 
 /*  VERSION 3 — the Points Usage Configuration card, shared by both program
@@ -29,11 +29,6 @@ const pendingUnitOptions = [
   { value: 'weeks', label: 'weeks' },
 ];
 
-const frequencyOptions = [
-  { value: 'monthly', label: 'Monthly' },
-  { value: 'quarterly', label: 'Quarterly' },
-];
-
 /*  Redemption Window and Points Expiration are mutually exclusive (as in V2):
     only one can be on. The one that is off is disabled, and says why on hover.  */
 const EXPIRY_LOCKED_TIP = 'You can\'t enable Points Expiration while Redemption Window is enabled. Disable Redemption Window to use this option.';
@@ -54,15 +49,10 @@ export function V3UsageCard({ form: f, onChange: set, variant }: V3UsageCardProp
 
   /*  V3: a pending period as long as the per-earning expiry means points
       expire before they can be used. Compared in days (weeks 7, months 30).  */
-  const pendingTooLong = f.pendingOn && f.releaseMode === 'period'
+  const pendingTooLong = f.pendingOn
     && f.pointsExpiration && f.expirationMode === 'earning'
     && Number(f.expiryCount) > 0 && Number(f.pendingCount) > 0
     && toDays(f.pendingCount, f.pendingUnit) >= toDays(f.expiryCount, f.expiryUnit);
-
-  const day = clampDay(f.releaseDay);
-  const releaseHelper = f.releaseFrequency === 'quarterly'
-    ? `Points earned in July–September become available on ${day} October.`
-    : `Points earned in October become available on ${day} November.`;
 
   const sale = variant === 'sale';
 
@@ -81,86 +71,36 @@ export function V3UsageCard({ form: f, onChange: set, variant }: V3UsageCardProp
                   onSelectionChange={(next) => set({ pendingOn: next === 'checked' })}
                 />
 
+                {/*  On: the set period, straight away (no release-method choice).  */}
                 {f.pendingOn ? (
-                  <Stack gap={0} className="ps-10 max-w-settings-option-panel">
-                    <RadioGroup
-                      label="Release method"
-                      required
-                      variant="tile"
-                      layout="stacked"
-                      value={f.releaseMode}
-                      onChange={(v) => set({ releaseMode: v })}
-                      options={[
-                        {
-                          value: 'period',
-                          label: 'After a set period',
-                          description: 'Each batch of earned points becomes available after the set duration from the bill date.',
-                          detail: f.releaseMode === 'period' ? (
-                            <Stack gap={2}>
-                              <Text as="span" size="body" weight="medium">Available after</Text>
-                              <Inline gap={0} className="flex-nowrap">
-                                <Stack gap={0} className="w-field-num">
-                                  <InputField
-                                    aria-label="Available after"
-                                    format="numeric"
-                                    error={pendingTooLong}
-                                    value={f.pendingCount}
-                                    onChange={(e) => set({ pendingCount: e.target.value })}
-                                    className="rounded-e-none"
-                                  />
-                                </Stack>
-                                <Select
-                                  className="w-field-unit rounded-s-none border-s-0"
-                                  value={f.pendingUnit}
-                                  onChange={(v) => set({ pendingUnit: v })}
-                                  options={pendingUnitOptions}
-                                  ariaLabel="Pending period unit"
-                                />
-                              </Inline>
-                              {pendingTooLong ? (
-                                <Text size="body-sm" tone="danger">
-                                  Pending period must be shorter than the expiry period, or points will expire before they can be used.
-                                </Text>
-                              ) : null}
-                            </Stack>
-                          ) : undefined,
-                        },
-                        {
-                          value: 'fixed',
-                          label: 'On a fixed date each period',
-                          description: 'All points earned within a period become available together on a fixed date.',
-                          detail: f.releaseMode === 'fixed' ? (
-                            <Stack gap={4}>
-                              <Inline gap={6} align="end" className="flex-nowrap">
-                                <Stack gap={0} className="w-field-sm shrink-0">
-                                  <Field label="Frequency">
-                                    {({ id, describedBy }) => (
-                                      <Select id={id} ariaDescribedBy={describedBy} value={f.releaseFrequency} onChange={(v) => set({ releaseFrequency: v })} options={frequencyOptions} />
-                                    )}
-                                  </Field>
-                                </Stack>
-                                <Stack gap={0} className="w-field-num shrink-0">
-                                  <Field label="On day">
-                                    {({ id, describedBy }) => (
-                                      <InputField
-                                        id={id}
-                                        aria-describedby={describedBy}
-                                        format="numeric"
-                                        align="end"
-                                        value={f.releaseDay}
-                                        onChange={(e) => set({ releaseDay: e.target.value })}
-                                        onBlur={() => set({ releaseDay: String(clampDay(f.releaseDay)) })}
-                                      />
-                                    )}
-                                  </Field>
-                                </Stack>
-                              </Inline>
-                              <Text size="body-sm" tone="secondary">{releaseHelper}</Text>
-                            </Stack>
-                          ) : undefined,
-                        },
-                      ]}
-                    />
+                  <Stack gap={2} className="ps-10">
+                    <Text as="span" size="body" weight="medium">Available after</Text>
+                    <Inline gap={0} className="flex-nowrap">
+                      <Stack gap={0} className="w-field-num">
+                        <InputField
+                          aria-label="Available after"
+                          format="numeric"
+                          error={pendingTooLong}
+                          value={f.pendingCount}
+                          onChange={(e) => set({ pendingCount: e.target.value })}
+                          className="rounded-e-none"
+                        />
+                      </Stack>
+                      <Stack gap={0} className="w-field-unit shrink-0">
+                        <Select
+                          className="w-full rounded-s-none border-s-0"
+                          value={f.pendingUnit}
+                          onChange={(v) => set({ pendingUnit: v })}
+                          options={pendingUnitOptions}
+                          ariaLabel="Pending period unit"
+                        />
+                      </Stack>
+                    </Inline>
+                    {pendingTooLong ? (
+                      <Text size="body-sm" tone="danger">
+                        Pending period must be shorter than the expiry period, or points will expire before they can be used.
+                      </Text>
+                    ) : null}
                   </Stack>
                 ) : null}
               </Stack>

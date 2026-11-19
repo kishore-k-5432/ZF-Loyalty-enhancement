@@ -6,7 +6,7 @@ import {
 } from '@canon';
 import { COMMERCE_MARK } from '../data/books-marks';
 import { SETTINGS_SECTIONS } from '../data/settings';
-import { PROGRAM_TYPE_LABEL, blankScheduled } from './v3/v3ProgramModel';
+import { PROGRAM_TYPE_LABEL, blankScheduled, endDateError } from './v3/v3ProgramModel';
 import type { ProgramRecord, ProgramType, SaleForm, ScheduleDates, ScheduledForm } from './v3/v3ProgramModel';
 import { V3SaleBody } from './v3/V3SaleBody';
 import { V3ScheduledBody } from './v3/V3ScheduledBody';
@@ -52,7 +52,7 @@ const PROGRAM_TYPE_OPTIONS = [
   {
     value: 'scheduled',
     label: PROGRAM_TYPE_LABEL.scheduled,
-    description: 'Customers receive points automatically on a date you set, once or on a repeating schedule.',
+    description: 'Customers receive points automatically on a repeating schedule you set, based on their purchases.',
   },
 ];
 
@@ -62,7 +62,7 @@ export function LoyaltyV2({
 }: LoyaltyV2Props) {
   //  Missing scheduled fields take their defaults, so a record held from an
   //  earlier shape of the model (a long-lived tab across an edit) still opens.
-  const [draft, setDraft] = useState<ProgramRecord>(() => ({ ...initial, scheduled: { ...blankScheduled(), ...initial.scheduled } }));
+  const [draft, setDraft] = useState<ProgramRecord>(() => ({ ...initial, scheduled: { ...blankScheduled(), ...initial.scheduled, repeats: true } }));
   const [tried, setTried] = useState(false);
   //  Bumped when the type is switched, so the body remounts and its right rail
   //  (the checkout simulator) starts fresh.
@@ -85,7 +85,7 @@ export function LoyaltyV2({
 
   const save = () => {
     setTried(true);
-    if (!draft.name.trim() || !dates.programStart) return;
+    if (!draft.name.trim() || !dates.programStart || endDateError(dates, true)) return;
     if (draft.type === 'scheduled') {
       if (hasErrors(scheduledErrors(draft.scheduled))) return;
     }
@@ -95,6 +95,7 @@ export function LoyaltyV2({
 
   const nameError = tried && !draft.name.trim();
   const startError = tried && !dates.programStart;
+  const endError = endDateError(dates, tried);
   //  An existing Points per sale program keeps V2's read-only name, description
   //  and rewarding rules. Scheduled programs and new ones are editable.
   const readOnlyBasics = !isNew && draft.type === 'sale';
@@ -121,7 +122,7 @@ export function LoyaltyV2({
         </Field>
       </Stack>
 
-      {/*  Program dates: a start date, and Never Expire. (Was the right
+      {/*  Program dates: a start date, Never Expire, and an end date when it is off. (Was the right
            rail's Schedule Program card.)  */}
       <Inline gap={10} align="end" className="flex-nowrap">
         <Stack gap={0} className="w-field-xl shrink-0">
@@ -141,6 +142,17 @@ export function LoyaltyV2({
           />
         </Inline>
       </Inline>
+
+      {/*  Never Expire off: the program needs an end date.  */}
+      {!dates.neverExpire ? (
+        <Stack gap={0} className="w-field-xl shrink-0">
+          <Field label="Program End Date" required error={Boolean(endError)} message={endError}>
+            {({ id, required, error, describedBy }) => (
+              <DatePicker id={id} required={required} error={error} ariaDescribedBy={describedBy} min={dates.programStart || undefined} value={dates.programEnd} onChange={(v) => setDates({ programEnd: v })} />
+            )}
+          </Field>
+        </Stack>
+      ) : null}
 
       {/*  Program Type: chosen at creation, fixed afterwards. In edit mode
            only the chosen card is shown, with a lock note.  */}

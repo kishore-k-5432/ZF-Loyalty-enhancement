@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Button, DatePicker, Field, Icon, Inline, InputField, Select, Stack, Text, Tooltip,
+  Button, Field, Icon, Inline, InputField, Select, Stack, Text, Tooltip,
 } from '@canon';
 import type { AwardOnMode, IntervalUnit, WeekOrdinal } from './v3ProgramModel';
 import {
@@ -9,7 +9,7 @@ import {
 import type { AwardSchedule, RepeatPreset } from './v3spModel';
 
 /*  VERSION 2 (V3 files) — SCHEDULED POINTS only (`v3sp`). When to award:
-    the date, and a recurrence trimmed from the Inventory stock-count
+    a recurrence (always on) trimmed from the Inventory stock-count
     scheduler — Repeat (with an interval set through Change), Award on (a
     day of the month, or the nth weekday; for yearly intervals, in a chosen
     month). No daily or weekly repeat, time of day, expiry or reminder: the
@@ -29,7 +29,6 @@ export interface V3spRecurrenceProps {
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const PRESETS: { value: RepeatPreset; label: string }[] = [
-  { value: 'none', label: 'Does not repeat' },
   { value: 'month', label: 'Every month' },
   { value: 'quarter', label: 'Every quarter' },
   { value: 'year', label: 'Every year' },
@@ -78,7 +77,6 @@ export function V3spRecurrence({ form: f, onChange: set, errors: e, tip }: V3spR
 
   const choose = (v: string) => {
     setEditing(null);
-    if (v === 'none') { set({ repeats: false }); return; }
     if (v === 'custom') return;
     const [c, u] = PRESET_INTERVAL[v as keyof typeof PRESET_INTERVAL];
     set({ repeats: true, intervalCount: c, intervalUnit: u });
@@ -97,13 +95,6 @@ export function V3spRecurrence({ form: f, onChange: set, errors: e, tip }: V3spR
       <Stack gap={2}>
         <Inline gap={8} align="end" className="flex-nowrap">
           <Stack gap={0} className="w-field-sm shrink-0">
-            <Field label={f.repeats ? 'Starts on' : 'Date'} required error={Boolean(e.date || e.dateRange)} message={e.date}>
-              {({ id, required, error, describedBy }) => (
-                <DatePicker id={id} required={required} error={error} ariaDescribedBy={describedBy} value={f.awardDate} onChange={(v) => set({ awardDate: v })} />
-              )}
-            </Field>
-          </Stack>
-          <Stack gap={0} className="w-field-sm shrink-0">
             <Field label="Repeat" required>
               {({ id, required, describedBy }) => (
                 <Select id={id} required={required} ariaDescribedBy={describedBy} value={preset} onChange={choose} options={repeatOptions} />
@@ -120,13 +111,8 @@ export function V3spRecurrence({ form: f, onChange: set, errors: e, tip }: V3spR
         {/*  "ⓘ Points will be awarded every 3 Month(s)  Change" — the stock-count line.  */}
         {f.repeats ? (
           editing ? (
-            //  In the same columns as the row above: the words under Starts on,
-            //  the number and unit exactly under Repeat, the tick under its ⓘ.
+            //  The number and unit exactly under Repeat, the tick under its ⓘ.
             <Inline gap={8} align="center" className="flex-nowrap">
-              <Inline gap={2} align="center" className="w-field-sm shrink-0 flex-nowrap">
-                <Icon name="info" size="sm" tone="subtle" />
-                <Text size="body-sm" tone="secondary">Points awarded every</Text>
-              </Inline>
               <Inline gap={0} className="w-field-sm shrink-0 flex-nowrap">
                 <Stack gap={0} className="w-1/3 min-w-0">
                   <InputField

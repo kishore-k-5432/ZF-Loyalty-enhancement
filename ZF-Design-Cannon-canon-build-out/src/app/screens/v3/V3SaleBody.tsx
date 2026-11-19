@@ -6,7 +6,7 @@ import {
 } from '@canon';
 import {
   V3CheckRow, V3InfoTip, V3OptionCard, V3RuleRow,
-  clampDay, fixedReleaseDate, shiftPeriod, v3Fmt as fmt,
+  shiftPeriod, v3Fmt as fmt,
   v3MinusPeriod as minusPeriod, v3Period as period,
 } from './v3Shared';
 import type { V3Check as Check } from './v3Shared';
@@ -43,18 +43,13 @@ export function V3SaleBody({ general, form: f, onChange: set, editable, previewO
   const [checkoutDate, setCheckoutDate] = useState('2026-11-10');
   const [earnedOn, setEarnedOn] = useState(() => shiftPeriod('2026-11-10', -5, 'days'));
 
-  const day = clampDay(f.releaseDay);
-  const releaseLabel = f.releaseMode === 'period'
-    ? `${period(f.pendingCount, f.pendingUnit)} after earning`
-    : `On day ${day} of every ${f.releaseFrequency === 'quarterly' ? 'quarter' : 'month'}`;
+  const releaseLabel = `${period(f.pendingCount, f.pendingUnit)} after earning`;
 
   /* ── LIVE PREVIEW — derived from state on every render ─────────────────── */
   const availablePts = f.pendingOn ? Number(available) || 0 : Number(balance) || 0;
   const pendingPts = f.pendingOn ? Number(pending) || 0 : 0;
   const unlockOn = !f.pendingOn ? ''
-    : f.releaseMode === 'period'
-      ? shiftPeriod(earnedOn, Number(f.pendingCount) || 0, f.pendingUnit)
-      : fixedReleaseDate(earnedOn, f.releaseFrequency, day);
+    : shiftPeriod(earnedOn, Number(f.pendingCount) || 0, f.pendingUnit);
   const pendingUnlocked = pendingPts > 0 && Boolean(unlockOn) && unlockOn <= checkoutDate;
   const pts = availablePts + (pendingUnlocked ? pendingPts : 0);
 

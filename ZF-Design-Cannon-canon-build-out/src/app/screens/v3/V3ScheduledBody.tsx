@@ -10,7 +10,7 @@ import { V3OptionCard, V3PreviewRow, V3RuleRow, v3Fmt as fmt, v3Period as period
 import { releaseLabel } from './v3ProgramModel';
 import type { ScheduledForm, ScheduledLoyaltyType } from './v3ProgramModel';
 import {
-  inr, nextAward, nextAwardCounts, purchaseWindowNote, scheduledErrors, summary, tryRate,
+  inr, nextAward, nextAwardCounts, purchaseWindowNote, scheduledErrors, summary, tryRate, upcomingWindows,
 } from './v3spModel';
 
 /*  VERSION 3 — the body of a SCHEDULED POINTS program.
@@ -18,7 +18,7 @@ import {
     A standalone program. Its cards, in order:
       · Points Rewarding Rules
           How to award  — Loyalty Type (one rate, or ranges), Amount per Point.
-          When to award — V3spRecurrence: Date / Starts on, Repeat (with
+          When to award — V3spRecurrence: Date (once only), Repeat (with
                           Change), Award on, and the first two award dates.
       · Points Usage Configuration — Points per sale's own card (V3UsageCard),
         without the Redemption Window: Availability, minimum points, Expiry.
@@ -76,7 +76,7 @@ export function V3ScheduledBody({ general, form: f, onChange: set, tried, previe
       icon: 'hourglass' as const,
       label: 'Points available',
       on: f.pendingOn,
-      value: !f.pendingOn ? 'Immediately after the award' : f.releaseMode ? releaseLabel(f) : 'Choose a release method',
+      value: !f.pendingOn ? 'Immediately after the award' : Number(f.pendingCount) > 0 ? releaseLabel(f) : 'Set the pending period',
     },
     {
       icon: 'lock' as const,
@@ -95,6 +95,7 @@ export function V3ScheduledBody({ general, form: f, onChange: set, tried, previe
   ];
 
   const tryResult = tryRate(f, Number(purchased) || 0);
+  const windows = upcomingWindows(f, 1);
 
   return (
     <Inline gap={16} align="start" className="flex-nowrap pe-10 pb-20">
@@ -164,9 +165,36 @@ export function V3ScheduledBody({ general, form: f, onChange: set, tried, previe
               <Subheading>When to award</Subheading>
 
               <Stack gap={4}>
-                {/*  Date / Starts on, Repeat, Award on — and, on the ⓘ by
+                {/*  Date (once only), Repeat, Award on — and, on the ⓘ by
                      Repeat, which purchases each award counts.  */}
                 <V3spRecurrence form={f} onChange={update} errors={{ date: e.date, dateRange: e.dateRange }} tip={purchaseWindowNote(f).join(' ')} />
+
+                {/*  Under Award on: the next award and the purchases it counts. Always shown: without a start
+                     date (or with no award before the end date) it says why.  */}
+                {windows.length === 0 ? (
+                  <Surface tone="sunken" radius="md" pad={6} className="max-w-settings-option-panel">
+                    <Inline gap={3} align="start" className="flex-nowrap">
+                      <Icon name="info" size="sm" tone="primary" />
+                      <Text size="body-sm">
+                        {!f.programStart
+                          ? 'Set the Program Start Date in General Details to see the next award date and the purchases each award counts.'
+                          : 'No award falls before the program end date. Change the end date or the schedule.'}
+                      </Text>
+                    </Inline>
+                  </Surface>
+                ) : (
+                  <Surface tone="sunken" radius="md" pad={6} className="max-w-settings-option-panel">
+                    <Stack gap={4}>
+                      <Inline gap={3} align="start" className="flex-nowrap">
+                        <Icon name="info" size="sm" tone="primary" />
+                        <Text size="body-sm">
+                          Next award on <Text as="span" size="body-sm" weight="semibold">{fmt(windows[0].award)}</Text>, for purchases made from {fmt(windows[0].from)} to {fmt(windows[0].to)}.
+                          {f.repeats ? ' After that, each award counts the purchases since the previous award.' : ''}
+                        </Text>
+                      </Inline>
+                    </Stack>
+                  </Surface>
+                )}
 
               </Stack>
             </Stack>
