@@ -230,6 +230,14 @@ export const WithInfo: Story = {
         />
         <Checkbox label="Points Expiration" info="Expired points are removed and can't be carried over." disabled />
         <Text size="body-sm" tone="secondary">Hover the ⓘ — the tip follows the pointer.</Text>
+        <Checkbox
+          label="Redemption Window"
+          emphasis="strong"
+          description='emphasis="strong" — Medium label, for an option that heads nested fields.'
+          info="Customers can redeem points only between the start and end dates."
+          selection="checked"
+        />
+        <Checkbox label="Redemption Window" emphasis="strong" info="Disabled, strong." disabled />
       </Stack>
     );
   },

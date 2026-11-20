@@ -60,6 +60,13 @@ export interface CheckboxProps {
    * Clicking the ⓘ does not toggle the checkbox.
    */
   info?: string;
+  /**
+   * `strong` sets the label in Medium — for an option that heads its own
+   * nested fields (a settings option whose fields open under it), so it reads
+   * above those fields' labels, which are Medium too. Default stays §5's
+   * Regular.
+   */
+  emphasis?: 'default' | 'strong';
   error?: boolean;
   errorMessage?: string;
   disabled?: boolean;
@@ -84,7 +91,7 @@ export interface CheckboxProps {
 const CHECK_D = 'M 3.215 6.22 L 5.19 7.855 L 8.785 4.145';
 
 export function Checkbox({
-  selection = 'unchecked', onSelectionChange, label, ariaLabel, description, info,
+  selection = 'unchecked', onSelectionChange, label, ariaLabel, description, info, emphasis = 'default',
   error, errorMessage, disabled, name, value, className,
 }: CheckboxProps) {
   const ref = useRef<HTMLInputElement>(null);
@@ -263,7 +270,7 @@ export function Checkbox({
           */}
           {info ? (
             <span className="inline-flex items-center gap-2">
-              <Text as="span" size="body" tone={disabled ? 'disabled' : 'default'}>{label}</Text>
+              <Text as="span" size="body" weight={emphasis === 'strong' ? 'medium' : 'regular'} tone={disabled ? 'disabled' : 'default'}>{label}</Text>
               {/*  Inside the <label>, so a click would toggle the box —
                    swallowed here. Never `disabled`-toned: the reason a
                    control is off is often exactly what the ⓘ explains.  */}
@@ -274,7 +281,7 @@ export function Checkbox({
               </span>
             </span>
           ) : (
-            <Text as="span" size="body" tone={disabled ? 'disabled' : 'default'}>{label}</Text>
+            <Text as="span" size="body" weight={emphasis === 'strong' ? 'medium' : 'regular'} tone={disabled ? 'disabled' : 'default'}>{label}</Text>
           )}
           {description ? (
             //  §5: Figma's description is 12 / 19.2, off the 12/16 scale. §9 uses

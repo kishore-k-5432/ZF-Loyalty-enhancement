@@ -323,6 +323,9 @@
         "icon": "IconName — 16×16, off by default",
         "iconRight": "IconName — off by default",
         "disabled": "boolean — native",
+        "prefix": "string — a unit or label at the leading edge, aria-hidden",
+        "suffix": "string — a unit at the trailing edge, aria-hidden",
+        "affix": "divided (default) | plain | filled — how prefix/suffix meet the value. filled adds a surface/sunken fill behind the affix, for a prefix that is a label. filled added 2026-11-20 for the loyalty expiry field",
         "format": "text (default) | numeric | decimal | tel | date. What the field accepts, filtered on CHANGE so typing, pasting, drag-drop and autofill are all covered and a controlled caller receives the cleaned value. `date` also MASKS: 22032026 becomes 22/03/2026, with the separator added only when a digit FOLLOWS it — append it eagerly and backspace becomes a trap, the user deletes the slash and the mask puts it straight back. The caret is preserved by counting DIGITS, not characters, because the mask adds and removes separators around it. NEVER type=\"number\" (a scroll wheel silently changes the value, leading zeros are dropped, spinners are unstyleable, and 1e5 is a 'valid number') and never type=\"date\" (the picker is painted by the OS, its displayed format follows the browser LOCALE so the same value reads 22/03 to one user and 03/22 to another, and its value is ISO — a second format for every consumer to convert)."
       },
       "source": "zf-input-field.md §3 — `Input Field/States`. 18 Figma variants collapse to 2: `States` are pseudo-classes and `Content` (placeholder vs value) is native `::placeholder`."
@@ -354,6 +357,7 @@
         "label": "string — omit for the bare box. The label is the hit area and the only thing that makes 2.5.8 pass",
         "description": "string",
         "info": "string — an ⓘ after the label with this text in a Tooltip on hover; clicking it does not toggle. Added 2026-11-17 for the loyalty usage options",
+        "emphasis": "default | strong — strong sets the label in Medium, for an option that heads its own nested fields. Added 2026-11-20 for the loyalty usage options",
         "error": "boolean — ignored when disabled",
         "errorMessage": "string",
         "disabled": "boolean",

@@ -1,8 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { SettingsLink } from '@canon';
-import { Segmented } from '@canon';
+import { Button, Icon, Inline, Menu, Segmented } from '@canon';
 import { LoyaltyV1 } from './screens/LoyaltyV1';
 import { LoyaltyV2 } from './screens/LoyaltyV2';
+import { LoyaltyV3 } from './screens/LoyaltyV3';
+import type { V3Audience } from './screens/LoyaltyV3';
 import { V3ProgramList } from './screens/v3/V3ProgramList';
 import type { V3Tab } from './screens/v3/V3ProgramList';
 import { DEFAULT_PREFS, SEED_PROGRAMS, SEED_TARGET_ID, blankRecord, cloneRecord } from './screens/v3/v3ProgramModel';
@@ -16,31 +18,40 @@ import { newId } from './screens/v3/v3Shared';
  * ── THE HUB ─────────────────────────────────────────────────────────────────
  * The POC opens on the Loyalty Program LIST. Opening a program shows its
  * editor:
- *   · a Points per sale program shows the V1 | V2 switch beside its title —
- *     V1 is the earlier flow; V2 (formerly V3) has program types, the
- *     pending period and the redemption window / expiry choice;
- *   · a Scheduled points program exists only in V2, so it has no switch.
+ *   · a Points per sale program shows the V1 | V2 | V3 switch beside its
+ *     title — V1 is the earlier flow; V2 (formerly V3) has program types, the
+ *     pending period and the redemption window / expiry choice; V3 (started
+ *     2026-11-20 as a copy of V2) holds changes proposed to V2, for comparison;
+ *   · a Scheduled points program shows V2 | V3 — it has no V1.
  * The saved programs live here, so they survive switching versions.
  *
  * ── HASH ROUTES ─────────────────────────────────────────────────────────────
  *   (bare) / #programs          the list
- *   #v1 · #v2                   the seeded Points per sale program, in that
+ *   #v1 · #v2 · #v3             the seeded Points per sale program, in that
  *                               version. These links are shared with DRIs, so
  *                               they must keep opening the editor directly.
- *   #v3                         the old V3 link → V2, which it now is
- *   #programs/scheduled         a scheduled program is open (reload → list)
+ *                               (#v3 pointed at V2 from 2026-11-17 to -20; it
+ *                               now opens the new V3.)
+ *   #programs/scheduled         a scheduled program is open, in either V2 or
+ *                               V3 (reload → list)
  *   #/settings/loyalty-program  the settings rail's link (V1/V2) → the list;
  *                               other rail links are ignored
  * Only the hash is read — never the host or port.
  */
-const VERSIONS = ['v1', 'v2'] as const;
+const VERSIONS = ['v1', 'v2', 'v3'] as const;
 type Version = (typeof VERSIONS)[number];
 
 /*  What each version changes — shown when hovering its pill.  */
 const VERSION_NOTES: Record<Version, string> = {
   v1: 'Points expiry moved into a section of its own.',
   v2: 'Adds the points pending period, and a redemption window or points expiration — one or the other.',
+  v3: 'Changes proposed to V2, kept apart for comparison.',
 };
+
+/*  V3 only — who the program is configured for. Existing Customers is the V3
+    built so far; New Customers starts as the same and will diverge.  */
+type Audience = V3Audience;
+const AUDIENCE_LABEL: Record<Audience, string> = { existing: 'Existing Customers', new: 'New Customers' };
 
 type View =
   | { kind: 'list' }
@@ -52,8 +63,6 @@ type Route = { version?: Version; list?: boolean; scheduled?: boolean; ignore?: 
 function readRoute(): Route {
   const h = window.location.hash.replace(/^#\/?/, '').toLowerCase();
   if ((VERSIONS as readonly string[]).includes(h)) return { version: h as Version };
-  //  V3 became V2; a shared #v3 link still opens it.
-  if (h === 'v3') return { version: 'v2' };
   if (h.startsWith('settings/')) return h === 'settings/loyalty-program' ? { list: true } : { ignore: true };
   if (h === 'programs/scheduled') return { scheduled: true };
   return { list: true };
@@ -77,12 +86,17 @@ const nextSession = () => { sessions += 1; return sessions; };
 
 type ScrollMark = { scrollTop: number; heading: string | null; offset: number };
 
-/*  The page scroller: the tallest element that scrolls vertically.  */
+/*  The page scroller: the tallest element that scrolls vertically AND holds
+    the form's section headings. Height alone picked the settings rail on the
+    left — it is taller than the form's scroller (the page header sits above
+    the form, not above the rail) and overflows too — so the form's place was
+    never recorded.  */
 function pageScroller(): HTMLElement | null {
   let best: HTMLElement | null = null;
   document.querySelectorAll<HTMLElement>('#root *').forEach((el) => {
     const oy = getComputedStyle(el).overflowY;
     if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight
+      && el.querySelector('h3, h4')
       && (!best || el.clientHeight > best.clientHeight)) best = el;
   });
   return best;
@@ -128,8 +142,13 @@ export function App() {
   const [prefs, setPrefs] = useState<LoyaltyPrefs>(DEFAULT_PREFS);
   const [toast, setToast] = useState('');
   //  Live preview show / hide — one setting for every version and type.
-  const [previewOpen, setPreviewOpen] = useState(true);
+  //  Closed by default across the whole POC.
+  const [previewOpen, setPreviewOpen] = useState(false);
   const scrollMark = useRef<ScrollMark | null>(null);
+  //  V3's audience dropdown — beside the switch, only while V3 is shown.
+  const [audience, setAudience] = useState<Audience>('existing');
+  const [audienceOpen, setAudienceOpen] = useState(false);
+  const audienceRef = useRef<HTMLButtonElement>(null);
 
   //  The hashchange handler is registered once, so it reads these through refs.
   const viewRef = useRef(view);
@@ -185,14 +204,17 @@ export function App() {
     restoreScroll(mark);
     const raf = requestAnimationFrame(() => restoreScroll(mark));
     return () => cancelAnimationFrame(raf);
-  }, [version]);
+  }, [version, audience]);
+
+  //  A Scheduled points program has no V1, so V1 shows it in V2.
+  const shown: Version = view.kind === 'program' && view.type === 'scheduled' && version === 'v1' ? 'v2' : version;
 
   //  Two tabs side by side are told apart by their tab titles.
-  const onSaleProgram = view.kind === 'program' && view.type === 'sale';
+  const onProgram = view.kind === 'program';
   useEffect(() => {
     const base = document.title.replace(/ · V\d+$/, '');
-    document.title = onSaleProgram ? `${base} · ${version.toUpperCase()}` : base;
-  }, [version, onSaleProgram]);
+    document.title = onProgram ? `${base} · ${shown.toUpperCase()}` : base;
+  }, [shown, onProgram]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -206,14 +228,60 @@ export function App() {
   //  nothing in this POC.
   const onNavigate = (leaf: SettingsLink) => { if (leaf.id === 'loyalty-program') toList(); };
 
-  const versionSwitch = (
+  //  Points per sale switches through the hash (#v1 · #v2 · #v3 open it).
+  //  Scheduled points keeps #programs/scheduled and switches in place.
+  const scheduledOpen = view.kind === 'program' && view.type === 'scheduled';
+  const segmented = (
     <Segmented
       size="sm"
       label="Loyalty flow version"
-      value={version}
-      onChange={(next) => { window.location.hash = next; }}
-      options={VERSIONS.map((v) => ({ value: v, label: v.toUpperCase(), tooltip: VERSION_NOTES[v] }))}
+      value={shown}
+      onChange={(next) => {
+        if (!scheduledOpen) { window.location.hash = next; return; }
+        scrollMark.current = markScroll();
+        setVersion(next as Version);
+      }}
+      options={VERSIONS.filter((v) => !(scheduledOpen && v === 'v1'))
+        .map((v) => ({ value: v, label: v.toUpperCase(), tooltip: VERSION_NOTES[v] }))}
     />
+  );
+
+  //  A text dropdown (a tertiary button + Menu), not a field-style Select.
+  const versionSwitch = shown !== 'v3' ? segmented : (
+    <Inline gap={4} align="center" className="flex-nowrap">
+      {segmented}
+      <Button
+        ref={audienceRef}
+        type="button"
+        emphasis="tertiary"
+        size="md"
+        aria-haspopup="menu"
+        aria-expanded={audienceOpen}
+        iconRight={<Icon name="caret-down-bold" size="caret" tone="inherit" />}
+        onClick={() => setAudienceOpen((o) => !o)}
+      >
+        {AUDIENCE_LABEL[audience]}
+      </Button>
+      <Menu
+        anchor={audienceRef}
+        open={audienceOpen}
+        onClose={() => setAudienceOpen(false)}
+        label="Customers this program is for"
+        align="start"
+        entries={(Object.keys(AUDIENCE_LABEL) as Audience[]).map((a) => ({
+          id: a,
+          label: AUDIENCE_LABEL[a],
+          icon: a === audience ? 'check' : <Icon name="check" size="md" tone="inherit" className="invisible" />,
+          onSelect: () => {
+            setAudienceOpen(false);
+            if (a === audience) return;
+            //  Same as a version switch: the place is kept by section.
+            scrollMark.current = markScroll();
+            setAudience(a);
+          },
+        }))}
+      />
+    </Inline>
   );
 
   /* ── The list ──────────────────────────────────────────────────────────── */
@@ -245,28 +313,30 @@ export function App() {
     return <LoyaltyV1 key={`${view.session}-${version}`} isNew={isNew} onClose={toList} versionSwitch={versionSwitch} {...preview} />;
   }
 
-  return (
-    <LoyaltyV2
-      key={view.session}
-      initial={record ? cloneRecord(record) : blankRecord('sale')}
-      isNew={isNew}
-      versionSwitch={view.type === 'sale' ? versionSwitch : undefined}
-      onTypeChange={(type) => setView((v) => (v.kind === 'program' ? { ...v, type } : v))}
-      onSave={(r) => {
-        if (isNew) {
-          setPrograms((prev) => [...prev, { ...cloneRecord(r), id: newId('p') }]);
-          setToast('Loyalty program created');
-          toList();
-        } else {
-          setPrograms((prev) => prev.map((p) => (p.id === r.id ? cloneRecord(r) : p)));
-          setToast('Loyalty program updated');
-        }
-      }}
-      onCancel={toList}
-      onNavigate={onNavigate}
-      toast={toast}
-      onDismissToast={() => setToast('')}
-      {...preview}
-    />
-  );
+  //  V2 and V3 share the saved programs; switching remounts the editor.
+  const editorProps = {
+    initial: record ? cloneRecord(record) : blankRecord(view.type),
+    isNew,
+    versionSwitch,
+    onTypeChange: (type: ProgramType) => setView((v) => (v.kind === 'program' ? { ...v, type } : v)),
+    onSave: (r: ProgramRecord) => {
+      if (isNew) {
+        setPrograms((prev) => [...prev, { ...cloneRecord(r), id: newId('p') }]);
+        setToast('Loyalty program created');
+        toList();
+      } else {
+        setPrograms((prev) => prev.map((p) => (p.id === r.id ? cloneRecord(r) : p)));
+        setToast('Loyalty program updated');
+      }
+    },
+    onCancel: toList,
+    onNavigate,
+    toast,
+    onDismissToast: () => setToast(''),
+    ...preview,
+  };
+  //  V3 also takes the audience, and remounts when it changes.
+  return shown === 'v3'
+    ? <LoyaltyV3 key={`${view.session}-v3-${audience}`} audience={audience} {...editorProps} />
+    : <LoyaltyV2 key={`${view.session}-${shown}`} {...editorProps} />;
 }

@@ -69,9 +69,11 @@ export interface InputFieldProps extends Omit<InputHTMLAttributes<HTMLInputEleme
   /**
    * How `prefix` and `suffix` meet the value. `divided` (default) draws the
    * rule between them; `plain` sets the text inline with no rule — the second
-   * half of a joined range, where `To` reads as a word, not a unit.
+   * half of a joined range, where `To` reads as a word, not a unit. `filled`
+   * is `divided` with a `surface/sunken` fill behind the affix — for a prefix
+   * that is a label (`Expire after`), so it reads as fixed text, not input.
    */
-  affix?: 'divided' | 'plain';
+  affix?: 'divided' | 'plain' | 'filled';
   /** `end` for a number that is read against a unit — the value hugs the far edge. */
   align?: 'start' | 'end';
 }
@@ -89,6 +91,9 @@ export function InputField({
         //  §4.1 / §7: height 34, padding and gap both space/5, radius md.
         'inline-flex items-center gap-5 h-control px-5 w-full',
         'rounded-md border bg-surface-default transition-colors',
+        //  `filled`: the affix fill runs to the border, so the corners clip it.
+        //  The focus ring is an outline, which overflow does not clip.
+        affix === 'filled' && 'overflow-hidden',
         //  §6: the ring is an outline, not a child rectangle — "an outline needs
         //  no node, never affects layout, and follows the box at any size".
         //  Applied to the wrapper so the icons sit inside it.
@@ -138,7 +143,8 @@ export function InputField({
           aria-hidden
           className={cn(
             'flex-none self-stretch flex items-center text-body',
-            affix === 'divided' && 'px-5 -ms-5 border-e border-border-default',
+            affix !== 'plain' && 'px-5 -ms-5 border-e border-border-default',
+            affix === 'filled' && 'bg-surface-sunken',
             disabled ? 'text-text-disabled' : 'text-text-default',
           )}
         >
@@ -208,7 +214,8 @@ export function InputField({
             //  `-me-5` cancels the field's own trailing padding so the divider
             //  reaches the border; `px-5` puts the unit back off it.
             'flex-none self-stretch flex items-center',
-            affix === 'divided' && 'px-5 -me-5 border-s border-border-default',
+            affix !== 'plain' && 'px-5 -me-5 border-s border-border-default',
+            affix === 'filled' && 'bg-surface-sunken',
             'text-body-sm', disabled ? 'text-text-disabled' : 'text-text-secondary',
           )}
         >

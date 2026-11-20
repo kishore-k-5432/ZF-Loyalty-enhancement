@@ -98,3 +98,20 @@ export const RestingBorder: Story = {
     </Stack>
   ),
 };
+
+/**
+ * AFFIXES — `prefix` / `suffix`, and how they meet the value. `divided` (the
+ * default) draws a rule; `plain` sets the text inline; `filled` adds a
+ * `surface/sunken` fill, for a prefix that is a label rather than a unit.
+ */
+export const Affixes: Story = {
+  render: () => (
+    <Stack gap={6} className="w-field-xs">
+      <InputField prefix="Min Points" placeholder="100" />
+      <InputField prefix="To" affix="plain" placeholder="500" />
+      <InputField prefix="Expire after" affix="filled" placeholder="30" />
+      <InputField suffix="days" affix="filled" placeholder="30" />
+      <InputField prefix="Expire after" affix="filled" placeholder="30" disabled />
+    </Stack>
+  ),
+};
