@@ -250,6 +250,7 @@ export function V3UsageCard({ form: f, onChange: set, audience }: V3UsageCardPro
                           <Stack gap={6}>
                             <Checkbox
                               label="Points never expire"
+                              emphasis="strong"
                               description="Points not redeemed by the end date stay in the customer's wallet. Untick to make each batch of points expire after a set period."
                               info={KEEP_INFO}
                               selection={f.windowExpiry ? 'unchecked' : 'checked'}
