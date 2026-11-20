@@ -98,7 +98,7 @@ export function V3UsageCard({ form: f, onChange: set, audience }: V3UsageCardPro
   return (
           <V3OptionCard title="Points Usage Configuration" icon="hourglass">
             {/*  3a. AVAILABILITY (V3) — the pending period. Both types.  */}
-            <Stack gap={8}>
+            <Stack gap={12}>
               <Text as="h4" size="body-lg" weight="medium">Availability</Text>
 
               <Stack gap={8}>
@@ -152,13 +152,13 @@ export function V3UsageCard({ form: f, onChange: set, audience }: V3UsageCardPro
 
             {/*  Redemption and Expiry (one group in V3), both types.  */}
 
-            <Stack gap={8}>
+            <Stack gap={12}>
               <Text as="h4" size="body-lg" weight="medium">Redemption and Expiry</Text>
 
-              {/*  Spacing groups the contents: 24 between options, 16 from an
+              {/*  Spacing groups the contents: 32 between options (24 under the heading), 16 from an
                    option to its fields, 24 between the window's dates and its
                    expiry choice, 12 from that choice to its field.  */}
-              <Stack gap={12}>
+              <Stack gap={16}>
                 <Stack gap={8}>
                   <Checkbox
                     label="Minimum Points Required for Redemption"
