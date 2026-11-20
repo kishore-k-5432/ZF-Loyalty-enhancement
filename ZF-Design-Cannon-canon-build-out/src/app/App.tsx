@@ -45,7 +45,7 @@ type Version = (typeof VERSIONS)[number];
 const VERSION_NOTES: Record<Version, string> = {
   v1: 'Points expiry moved into a section of its own.',
   v2: 'Adds the points pending period, and a redemption window or points expiration — one or the other.',
-  v3: 'Changes proposed to V2, kept apart for comparison.',
+  v3: 'Redemption behaviour updated for existing and new customers.',
 };
 
 /*  V3 only — who the program is configured for. Existing Customers is the V3
